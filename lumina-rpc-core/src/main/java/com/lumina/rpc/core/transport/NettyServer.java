@@ -101,6 +101,21 @@ public class NettyServer {
      * 启动服务器
      *
      * @param port 端口号
+     *
+     * 💡 [虚拟线程预告] 💡
+     * ============================================================
+     * 此处未来可引入 Java 21 虚拟线程进一步提升高并发吞吐量：
+     *
+     *   // 替换传统的线程池
+     *   ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+     *
+     * 虚拟线程 (Virtual Threads) 优势：
+     * - 百万级并发连接，内存占用极低
+     * - 无需手动管理线程池
+     * - 与现有代码完全兼容
+     *
+     * 适用场景：高吞吐量的 RPC 服务、即时通讯网关
+     * ============================================================
      */
     public void start(int port) {
         if (running) {

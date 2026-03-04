@@ -27,7 +27,9 @@
       "Bash(cmd:*)",
       "Bash(ls -la G:/project/lumina-rpc/lumina-control-plane/src/main/java/com/lumina/controlplane/entity/ 2>/dev/null || dir G:\\\\project\\\\lumina-rpc\\\\lumina-control-plane\\\\src\\\\main\\\\java\\\\com\\\\lumina\\\\controlplane\\\\entity\\\\ 2>nul)",
       "Bash(mvn compile:*)",
-      "Bash(jar:*)"
+      "Bash(jar:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker:*)"
     ]
   }
 }
