@@ -29,7 +29,19 @@
       "Bash(mvn compile:*)",
       "Bash(jar:*)",
       "Bash(docker-compose up:*)",
-      "Bash(docker:*)"
+      "Bash(docker:*)",
+      "Bash(docker-compose build:*)",
+      "Bash(docker-compose ps:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(docker-compose:*)",
+      "Bash(mvn dependency:tree:*)",
+      "Bash(git:*)",
+      "Bash(mvn dependency:resolve:*)",
+      "Bash(mvn install:*)",
+      "Bash(mvn install:install-file:*)",
+      "Bash(mvn help:evaluate:*)",
+      "Bash(env:*)",
+      "Bash(unzip:*)"
     ]
   }
 }

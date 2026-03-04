@@ -4,7 +4,7 @@
 # ============================================================
 
 # Stage 1: Build
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ COPY lumina-dashboard/package.json lumina-dashboard/package-lock.json* ./lumina-
 
 # 安装依赖（利用 Docker 缓存）
 WORKDIR /app/lumina-dashboard
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 # 复制源码
 COPY lumina-dashboard/ ./

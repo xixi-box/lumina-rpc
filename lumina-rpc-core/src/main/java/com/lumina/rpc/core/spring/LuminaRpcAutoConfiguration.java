@@ -60,8 +60,10 @@ public class LuminaRpcAutoConfiguration {
 
     /**
      * RPC 服务端主机地址
+     * 优先使用环境变量 LUMINA_RPC_SERVER_HOST（Docker 环境），
+     * 其次使用配置文件 lumina.rpc.server.host，默认 127.0.0.1
      */
-    @Value("${lumina.rpc.server.host:127.0.0.1}")
+    @Value("${lumina.rpc.server.host:${LUMINA_RPC_SERVER_HOST:127.0.0.1}}")
     private String serverHost;
 
     /**

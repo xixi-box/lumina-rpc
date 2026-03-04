@@ -423,21 +423,31 @@ const saveMockRule = async () => {
 }
 
 // 状态相关函数
+// 解析时间字符串为 UTC 时间（后端返回的是 UTC 时间）
+const parseUtcDate = (dateStr?: string): Date | null => {
+  if (!dateStr) return null
+  // 后端返回的时间没有时区信息，添加 Z 表示 UTC
+  return new Date(dateStr + 'Z')
+}
+
 const getStatusColor = (status: string, expiresAt?: string) => {
   if (status !== 'UP') return 'bg-red-500'
-  if (expiresAt && new Date(expiresAt) < new Date()) return 'bg-yellow-500'
+  const expires = parseUtcDate(expiresAt)
+  if (expires && expires < new Date()) return 'bg-yellow-500'
   return 'bg-emerald-500'
 }
 
 const getStatusTextColor = (status: string, expiresAt?: string) => {
   if (status !== 'UP') return 'text-red-500'
-  if (expiresAt && new Date(expiresAt) < new Date()) return 'text-yellow-500'
+  const expires = parseUtcDate(expiresAt)
+  if (expires && expires < new Date()) return 'text-yellow-500'
   return 'text-emerald-500'
 }
 
 const getDisplayStatus = (instance: ServiceInstance) => {
   if (instance.status !== 'UP') return '已停止'
-  if (instance.expiresAt && new Date(instance.expiresAt) < new Date()) return '过期'
+  const expires = parseUtcDate(instance.expiresAt)
+  if (expires && expires < new Date()) return '过期'
   return '运行中'
 }
 

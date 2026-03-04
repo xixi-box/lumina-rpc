@@ -13,7 +13,7 @@ spring:
 lumina:
   rpc:
     # 控制平面地址（用于服务发现）
-    control-plane-url: http://localhost:8080
+    control-plane-url: ${LUMINA_RPC_CONTROL_PLANE_URL:http://localhost:8080}
     # 服务发现刷新间隔（秒）
     discovery-refresh-interval: 10
     # 服务端配置 (Consumer 不需要服务端端口，但保留配置)
