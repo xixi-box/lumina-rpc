@@ -1,0 +1,21 @@
+# ============================================================
+# Docker 忽略文件
+# ============================================================
+.git
+.gitignore
+*.md
+target/
+node_modules/
+dist/
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.*
+!.env.example
+docker-compose.override.yml
+*.class
+.java_version

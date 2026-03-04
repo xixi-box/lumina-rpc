@@ -1,0 +1,149 @@
+version: '3.8'
+
+# ============================================================
+# Lumina-RPC Docker Compose
+# 完整服务编排（MySQL + 5 个微服务）
+# ============================================================
+
+services:
+  # -------------------------------------------------------
+  # Control Plane（控制面）
+  # -------------------------------------------------------
+  control-plane:
+    build:
+      context: .
+      dockerfile: Dockerfile.java
+      args:
+        TARGET_MODULE: lumina-control-plane
+    container_name: lumina-control-plane
+    restart: unless-stopped
+    environment:
+      # Java 虚拟机参数
+      JAVA_OPTS: "-Xms128m -Xmx256m -XX:+UseG1GC"
+      # Spring 配置（使用 application.yml 中的配置，无需额外设置）
+      SPRING_PROFILES_ACTIVE: prod
+    ports:
+      - "8080:8080"
+    networks:
+      - lumina-net
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+    volumes:
+      # 挂载 application.yml 确保使用已有的数据库配置
+      - ./lumina-control-plane/src/main/resources/application.yml:/app/config/application.yml:ro
+
+  # -------------------------------------------------------
+  # Sample Engine（Warp Engine 示例服务）
+  # -------------------------------------------------------
+  sample-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.java
+      args:
+        TARGET_MODULE: lumina-sample-engine
+    container_name: lumina-sample-engine
+    restart: unless-stopped
+    environment:
+      JAVA_OPTS: "-Xms128m -Xmx256m"
+      # 连接 Control Plane
+      LUMINA_CONTROL_PLANE_URL: "http://control-plane:8080"
+      # 服务端口
+      SERVER_PORT: 20880
+    ports:
+      - "20880:20880"
+    depends_on:
+      - control-plane
+    networks:
+      - lumina-net
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+  # -------------------------------------------------------
+  # Sample Radar（Deep Space Radar 示例服务）
+  # -------------------------------------------------------
+  sample-radar:
+    build:
+      context: .
+      dockerfile: Dockerfile.java
+      args:
+        TARGET_MODULE: lumina-sample-radar
+    container_name: lumina-sample-radar
+    restart: unless-stopped
+    environment:
+      JAVA_OPTS: "-Xms128m -Xmx256m"
+      LUMINA_CONTROL_PLANE_URL: "http://control-plane:8080"
+      SERVER_PORT: 20881
+    ports:
+      - "20881:20881"
+    depends_on:
+      - control-plane
+    networks:
+      - lumina-net
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+  # -------------------------------------------------------
+  # Sample Command（Fleet Command 示例服务）
+  # -------------------------------------------------------
+  sample-command:
+    build:
+      context: .
+      dockerfile: Dockerfile.java
+      args:
+        TARGET_MODULE: lumina-sample-command
+    container_name: lumina-sample-command
+    restart: unless-stopped
+    environment:
+      JAVA_OPTS: "-Xms128m -Xmx256m"
+      LUMINA_CONTROL_PLANE_URL: "http://control-plane:8080"
+      SERVER_PORT: 20882
+    ports:
+      - "20882:20882"
+    depends_on:
+      - control-plane
+    networks:
+      - lumina-net
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+  # -------------------------------------------------------
+  # Dashboard（前端监控面板）
+  # -------------------------------------------------------
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.front
+    container_name: lumina-dashboard
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - control-plane
+    networks:
+      - lumina-net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+# -------------------------------------------------------
+# 网络定义
+# -------------------------------------------------------
+networks:
+  lumina-net:
+    driver: bridge
