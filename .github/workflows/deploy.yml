@@ -3,17 +3,11 @@ name: Deploy to Production
 on:
   push:
     branches:
-      - master
+      - main  # 注意：如果你的主分支叫 master，请改成 master
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
-    # 强制注入 Secrets 环境变量
-    env:
-      SSH_HOST: ${{ secrets.SSH_HOST }}
-      SSH_USER: ${{ secrets.SSH_USER }}
-      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
     steps:
       # Step 1: 检出代码
@@ -27,69 +21,37 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      # Step 3: 配置 Node.js 24
-      - name: Set up Node.js 24
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      # Step 4: 全量构建 - 生成后端 Fat JAR
+      # Step 3: 全量构建 - 生成后端 Fat JAR
       - name: Build backend with Maven
         run: mvn clean package -DskipTests
 
-      # Step 5: 诊断性测试 - 检查 secrets
-      - name: Check Secrets
-        run: |
-          echo "Checking if secrets are loaded..."
-          if [ -z "${{ env.SSH_HOST }}" ]; then
-            echo "ERROR: SSH_HOST is empty!"
-            exit 1
-          else
-            echo "SSH_HOST is loaded: ${{ env.SSH_HOST }}"
-          fi
-
-          if [ -z "${{ env.SSH_USER }}" ]; then
-            echo "ERROR: SSH_USER is empty!"
-            exit 1
-          else
-            echo "SSH_USER is loaded: ${{ env.SSH_USER }}"
-          fi
-
-          if [ -z "${{ env.SSH_PRIVATE_KEY }}" ]; then
-            echo "ERROR: SSH_PRIVATE_KEY is empty!"
-            exit 1
-          else
-            echo "SSH_PRIVATE_KEY is loaded (length: ${#SSH_PRIVATE_KEY})"
-          fi
-
-      # Step 6: SCP 复制文件到服务器
+      # ⚠️ 关键修改：直接在 with 中硬编码 IP 和 用户名，私钥从 secrets 读取
+      # Step 4: SCP 复制文件到服务器
       - name: Deploy to Server via SCP
-        uses: appleboy/scp-action@v0.1.4
+        uses: appleboy/scp-action@master
         with:
-          host: ${{ env.SSH_HOST }}
-          username: ${{ env.SSH_USER }}
-          key: ${{ env.SSH_PRIVATE_KEY }}
+          host: "42.193.105.133"
+          username: "ubuntu"
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
-          source: "."
+          source: "target/*.jar,docker-compose.yml" # 推荐只传必要文件，如果你想全传就写 "."
           target: "/home/ubuntu/lumina-app"
           strip_components: 0
           command_timeout: 10m
 
-      # Step 7: 远程执行 Docker Compose
+      # Step 5: 远程执行 Docker Compose
       - name: Deploy with SSH
-        uses: appleboy/ssh-action@v0.1.4
+        uses: appleboy/ssh-action@master
         with:
-          host: ${{ env.SSH_HOST }}
-          username: ${{ env.SSH_USER }}
-          key: ${{ env.SSH_PRIVATE_KEY }}
+          host: "42.193.105.133"
+          username: "ubuntu"
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
             echo "Deploying to /home/ubuntu/lumina-app..."
-            cd /home/ubuntu/lumina-app
-
-            # 确保部署目录有正确的读写权限
-            echo "Fixing directory permissions..."
+            sudo mkdir -p /home/ubuntu/lumina-app
             sudo chown -R ubuntu:ubuntu /home/ubuntu/lumina-app
+            cd /home/ubuntu/lumina-app
 
             # 优雅停止旧容器
             echo "Stopping old containers..."
