@@ -29,23 +29,56 @@ jobs:
       - name: Build backend with Maven
         run: mvn clean package -DskipTests
 
-      # Step 3: 部署到远程服务器
-      - name: Copy files via SCP
-        uses: appleboy/scp-action@master
+      # Step 3: 诊断性测试 - 检查 secrets 是否正确加载
+      - name: Check Secrets
+        run: |
+          echo "Checking if secrets are loaded..."
+          if [ -z "${{ secrets.SSH_HOST }}" ]; then
+            echo "ERROR: SSH_HOST is empty!"
+            exit 1
+          else
+            echo "SSH_HOST is loaded: ${{ secrets.SSH_HOST }}"
+          fi
+
+          if [ -z "${{ secrets.SSH_USER }}" ]; then
+            echo "ERROR: SSH_USER is empty!"
+            exit 1
+          else
+            echo "SSH_USER is loaded: ${{ secrets.SSH_USER }}"
+          fi
+
+          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+            echo "ERROR: SSH_PRIVATE_KEY is empty!"
+            exit 1
+          else
+            echo "SSH_PRIVATE_KEY is loaded (length: ${#SSH_PRIVATE_KEY})"
+          fi
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # Step 4: 部署到远程服务器 - SCP 复制文件
+      - name: Deploy to Server via SCP
+        uses: appleboy/scp-action@v0.1.4
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
           source: "."
           target: "/home/ubuntu/lumina-app"
           strip_components: 0
+          command_timeout: 10m
 
+      # Step 5: 远程执行 Docker Compose
       - name: Deploy with SSH
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v0.1.4
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
           script: |
             cd /home/ubuntu/lumina-app
             sudo docker-compose down
