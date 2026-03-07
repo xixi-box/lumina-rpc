@@ -45,10 +45,9 @@ services:
     environment:
       JAVA_OPTS: "-Xms128m -Xmx256m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError"
       SPRING_PROFILES_ACTIVE: prod
-      SPRING_DATASOURCE_URL: jdbc:mysql://lumina-mysql:3306/lumina?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: lumina
-      SPRING_DATASOURCE_PASSWORD: lumina123
-      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
+      MYSQL_URL: jdbc:mysql://lumina-mysql:3306/lumina?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      MYSQL_USER: lumina
+      MYSQL_PASSWORD: lumina123
       TZ: Asia/Shanghai
     ports:
       - "8080:8080"
