@@ -126,9 +126,10 @@ public class NettyServer {
         this.port = port;
 
         try {
-            ChannelFuture future = serverBootstrap.bind(port).sync();
+            // 显式绑定到 0.0.0.0，确保容器内外都能访问（IPv4）
+            ChannelFuture future = serverBootstrap.bind(new InetSocketAddress("0.0.0.0", port)).sync();
             this.running = true;
-            logger.info("Netty RPC server started on port {}", port);
+            logger.info("Netty RPC server started on 0.0.0.0:{}", port);
 
             // 等待服务器关闭
             future.channel().closeFuture().sync();
@@ -154,11 +155,12 @@ public class NettyServer {
 
         this.port = port;
 
-        ChannelFuture future = serverBootstrap.bind(port);
+        // 显式绑定到 0.0.0.0，确保容器内外都能访问（IPv4）
+        ChannelFuture future = serverBootstrap.bind(new InetSocketAddress("0.0.0.0", port));
         future.addListener((ChannelFutureListener) f -> {
             if (f.isSuccess()) {
                 this.running = true;
-                logger.info("Netty RPC server started on port {}", port);
+                logger.info("Netty RPC server started on 0.0.0.0:{}", port);
             } else {
                 logger.error("Failed to start server on port {}", port, f.cause());
             }
