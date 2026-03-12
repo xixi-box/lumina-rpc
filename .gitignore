@@ -26,3 +26,4 @@ bin/
 # === 系统相关 ===
 .DS_Store
 Thumbs.db
+.claude
