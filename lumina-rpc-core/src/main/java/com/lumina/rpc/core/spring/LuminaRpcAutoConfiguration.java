@@ -5,6 +5,7 @@ import com.lumina.rpc.core.mock.MockRuleSubscriptionClient;
 import com.lumina.rpc.core.protection.ProtectionConfigClient;
 import com.lumina.rpc.core.proxy.ProxyFactory;
 import com.lumina.rpc.core.stats.RequestStatsReporter;
+import com.lumina.rpc.core.trace.TraceReporter;
 import com.lumina.rpc.protocol.pool.ChannelPoolManager;
 import com.lumina.rpc.protocol.spi.Serializer;
 import com.lumina.rpc.protocol.spi.SerializerManager;
@@ -109,6 +110,10 @@ public class LuminaRpcAutoConfiguration {
     public void initServiceDiscovery() {
         log.info("🔍 [Lumina-RPC] Initializing service discovery client, control plane: {}", controlPlaneUrl);
         ServiceDiscoveryClient.init(controlPlaneUrl, discoveryRefreshInterval);
+
+        // 初始化 TraceReporter（链路追踪上报）
+        TraceReporter.getInstance().setControlPlaneUrl(controlPlaneUrl);
+        log.info("📡 [Lumina-RPC] TraceReporter initialized, control plane: {}", controlPlaneUrl);
 
         // 初始化保护配置客户端（熔断器/限流器动态配置）
         initProtectionConfigClient();
