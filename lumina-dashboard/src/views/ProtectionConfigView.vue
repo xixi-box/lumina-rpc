@@ -234,30 +234,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
-
-interface ServiceInfo {
-  name: string
-  metadata: any
-}
-
-interface ProtectionConfig {
-  id: number
-  serviceName: string
-  circuitBreakerEnabled: boolean
-  circuitBreakerThreshold: number
-  circuitBreakerTimeout: number
-  circuitBreakerState?: string
-  rateLimiterEnabled: boolean
-  rateLimiterPermits: number
-  rateLimiterPassed?: number
-  rateLimiterRejected?: number
-  clusterStrategy: string
-  retries: number
-  timeoutMs: number
-  version: number
-}
+import { registryApi, protectionApi } from '@/api'
+import type { ProtectionConfig, ProtectionConfigForm, ServiceInfo } from '@/types'
 
 const configs = ref<ProtectionConfig[]>([])
 const services = ref<ServiceInfo[]>([])
@@ -265,7 +244,7 @@ const dialogVisible = ref(false)
 const isEditing = ref(false)
 const saving = ref(false)
 
-const form = ref({
+const form = ref<ProtectionConfigForm>({
   serviceName: '',
   circuitBreakerEnabled: true,
   circuitBreakerThreshold: 50,
@@ -280,8 +259,7 @@ const form = ref({
 // 获取配置列表
 const fetchConfigs = async () => {
   try {
-    const response = await axios.get('/api/v1/protection/configs')
-    configs.value = response.data.configs || []
+    configs.value = await protectionApi.list()
   } catch (error) {
     console.error('获取保护配置失败:', error)
     ElMessage.error('获取保护配置失败')
@@ -291,18 +269,7 @@ const fetchConfigs = async () => {
 // 获取服务列表
 const fetchServices = async () => {
   try {
-    const response = await axios.get('/api/v1/registry/instances')
-    const instances = response.data || []
-    const serviceMap = new Map<string, ServiceInfo>()
-    for (const instance of instances) {
-      if (!serviceMap.has(instance.serviceName)) {
-        serviceMap.set(instance.serviceName, {
-          name: instance.serviceName,
-          metadata: instance.serviceMetadata ? JSON.parse(instance.serviceMetadata) : null
-        })
-      }
-    }
-    services.value = Array.from(serviceMap.values())
+    services.value = await registryApi.listServices()
   } catch (error) {
     console.error('获取服务列表失败:', error)
   }
@@ -351,25 +318,7 @@ const saveConfig = async () => {
 
   saving.value = true
   try {
-    // 先保存熔断器和限流器配置
-    await axios.put(`/api/v1/protection/configs/${form.value.serviceName}/circuit-breaker`, {
-      enabled: form.value.circuitBreakerEnabled,
-      threshold: form.value.circuitBreakerThreshold,
-      timeout: form.value.circuitBreakerTimeout
-    })
-
-    await axios.put(`/api/v1/protection/configs/${form.value.serviceName}/rate-limiter`, {
-      enabled: form.value.rateLimiterEnabled,
-      permits: form.value.rateLimiterPermits
-    })
-
-    // 保存集群配置
-    await axios.put(`/api/v1/protection/configs/${form.value.serviceName}/cluster`, {
-      timeoutMs: form.value.timeoutMs,
-      retries: form.value.retries,
-      clusterStrategy: form.value.clusterStrategy
-    })
-
+    await protectionApi.saveConfig(form.value)
     ElMessage.success('配置保存成功，将在 5 秒内生效')
     dialogVisible.value = false
     await fetchConfigs()
@@ -389,7 +338,7 @@ const deleteConfig = async (serviceName: string) => {
       cancelButtonText: '取消',
       type: 'warning'
     })
-    await axios.delete(`/api/v1/protection/configs/${serviceName}`)
+    await protectionApi.delete(serviceName)
     ElMessage.success('配置已删除')
     await fetchConfigs()
   } catch (e: any) {

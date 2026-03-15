@@ -231,39 +231,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import axios from 'axios'
-
-interface TraceSummary {
-  traceId: string
-  serviceName: string
-  startTime: number
-  spanCount: number
-  totalDuration: number
-  hasError: boolean
-}
-
-interface SpanEntity {
-  id: number
-  traceId: string
-  spanId: string
-  parentSpanId: string | null
-  serviceName: string
-  methodName: string
-  kind: string
-  startTime: number
-  duration: number
-  success: boolean
-  errorMessage: string | null
-  remoteAddress: string | null
-}
-
-interface TraceDetail {
-  traceId: string
-  spans: SpanEntity[]
-  totalDuration: number
-  spanCount: number
-  hasError: boolean
-}
+import { traceApi } from '@/api'
+import type { TraceSummary, TraceDetail, SpanEntity } from '@/types'
 
 const traces = ref<TraceSummary[]>([])
 const selectedTraceId = ref<string | null>(null)
@@ -289,15 +258,7 @@ const sortedSpans = computed(() => {
 const fetchTraces = async () => {
   loading.value = true
   try {
-    const response = await axios.get('/api/v1/traces?limit=50')
-    // 处理可能的响应格式
-    if (response.data && Array.isArray(response.data)) {
-      traces.value = response.data
-    } else if (response.data && response.data.traces) {
-      traces.value = response.data.traces
-    } else {
-      traces.value = []
-    }
+    traces.value = await traceApi.list(50)
   } catch (error) {
     console.error('获取 Trace 列表失败:', error)
     traces.value = []
@@ -310,8 +271,7 @@ const fetchTraces = async () => {
 const selectTrace = async (traceId: string) => {
   selectedTraceId.value = traceId
   try {
-    const response = await axios.get(`/api/v1/traces/${traceId}`)
-    selectedTrace.value = response.data
+    selectedTrace.value = await traceApi.getDetail(traceId)
   } catch (error) {
     console.error('获取 Trace 详情失败:', error)
     selectedTrace.value = null

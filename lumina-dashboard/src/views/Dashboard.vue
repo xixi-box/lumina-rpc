@@ -77,22 +77,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import StatsCard from '../components/StatsCard.vue'
 import TrendChart from '../components/TrendChart.vue'
 import TopologyView from './TopologyView.vue'
-
-interface StatsData {
-  onlineServices?: number
-  enabledMockRules?: number
-  totalInstances?: number
-  totalMockRules?: number
-  todayRequests?: number
-  avgLatency?: number
-  systemStatus?: string
-  timestamp?: string
-}
+import { statsApi } from '@/api'
+import type { StatsData } from '@/types'
 
 const stats = ref<StatsData>({})
 const loading = ref(false)
@@ -101,8 +91,7 @@ const loading = ref(false)
 const fetchStats = async () => {
   loading.value = true
   try {
-    const response = await axios.get('/api/v1/stats')
-    stats.value = response.data || {}
+    stats.value = await statsApi.get()
   } catch (err: any) {
     console.error('获取统计数据失败:', err)
     ElMessage.error('获取统计数据失败')

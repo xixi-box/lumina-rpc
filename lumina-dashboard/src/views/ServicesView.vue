@@ -228,36 +228,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import { registryApi, mockApi } from '@/api'
+import type { ServiceInstance, ServiceMetadata, MockRuleForm } from '@/types'
 
 const router = useRouter()
-
-interface ServiceInstance {
-  id: number
-  serviceName: string
-  instanceId: string
-  host: string
-  port: number
-  status: string
-  version?: string
-  metadata?: string
-  serviceMetadata?: string
-  lastHeartbeat?: string
-  registeredAt?: string
-  expiresAt?: string
-}
-
-interface MethodInfo {
-  name: string
-  parameterTypes: string[]
-  returnType: string
-}
-
-interface ServiceMetadata {
-  interfaceName: string
-  methods: MethodInfo[]
-}
 
 const instances = ref<ServiceInstance[]>([])
 const loading = ref(false)
@@ -273,10 +248,11 @@ const currentMetadata = ref<ServiceMetadata | null>(null)
 // Mock 对话框
 const mockDialogVisible = ref(false)
 const savingMock = ref(false)
-const mockForm = ref({
+const mockForm = ref<MockRuleForm>({
   serviceName: '',
   methodName: '',
   mockType: 'SHORT_CIRCUIT',
+  responseType: 'success',
   responseBody: '{}',
   enabled: true
 })
@@ -298,8 +274,7 @@ const fetchInstances = async () => {
   loading.value = true
   error.value = null
   try {
-    const response = await axios.get('/api/v1/registry/instances')
-    instances.value = response.data || []
+    instances.value = await registryApi.listInstances()
     instances.value.forEach(i => expandedServices.value.add(i.serviceName))
     await fetchMockStats()
   } catch (err: any) {
@@ -314,15 +289,7 @@ const fetchInstances = async () => {
 // 获取 Mock 规则统计
 const fetchMockStats = async () => {
   try {
-    const response = await axios.get('/api/v1/rules')
-    const rules = response.data || []
-    const counts = new Map<string, number>()
-    rules.forEach((rule: any) => {
-      if (rule.enabled) {
-        counts.set(rule.serviceName, (counts.get(rule.serviceName) || 0) + 1)
-      }
-    })
-    mockRules.value = counts
+    mockRules.value = await mockApi.getStats()
   } catch (err) {
     console.error('获取 Mock 规则统计失败:', err)
   }
@@ -335,17 +302,7 @@ const viewMetadata = async (serviceName: string) => {
   currentMetadata.value = null
 
   try {
-    const response = await axios.get(`/api/v1/registry/metadata/${serviceName}`)
-    // 修复：后端返回 { services: [{ interfaceName, methods }] }
-    const data = response.data
-    if (data && data.services && data.services.length > 0) {
-      currentMetadata.value = {
-        interfaceName: data.services[0].interfaceName || serviceName,
-        methods: data.services[0].methods || []
-      }
-    } else {
-      currentMetadata.value = null
-    }
+    currentMetadata.value = await registryApi.getMetadata(serviceName)
   } catch (err) {
     console.error('获取元数据失败:', err)
     ElMessage.warning('该服务暂无元数据')
@@ -383,6 +340,7 @@ const openMockDialog = (serviceName: string) => {
     serviceName,
     methodName: '',
     mockType: 'SHORT_CIRCUIT',
+    responseType: 'success',
     responseBody: '{}',
     enabled: true
   }
@@ -403,15 +361,7 @@ const saveMockRule = async () => {
 
   savingMock.value = true
   try {
-    await axios.post('/api/v1/rules', {
-      serviceName: mockForm.value.serviceName,
-      methodName: mockForm.value.methodName,
-      mockType: mockForm.value.mockType,
-      responseType: 'success',
-      responseBody: mockForm.value.responseBody,
-      enabled: mockForm.value.enabled
-    })
-
+    await mockApi.create(mockForm.value)
     ElMessage.success('Mock 规则已创建')
     mockDialogVisible.value = false
     await fetchMockStats()

@@ -1,0 +1,142 @@
+/**
+ * Lumina-RPC 公共样式
+ * 提取各组件重复的样式定义
+ */
+
+/* 文字渐变效果 */
+.text-gradient {
+  background: linear-gradient(135deg, #00ff88, #00ccff, #ff00aa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* 玻璃面板效果 */
+.glass-panel {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(71, 85, 105, 0.4);
+  border-radius: 12px;
+}
+
+/* 卡片悬停效果 */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.5);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.7);
+}
+
+/* JSON 语法高亮 */
+.json-highlight {
+  font-family: 'Fira Code', 'Consolas', monospace;
+  line-height: 1.5;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  border-left: 2px solid;
+}
+
+.json-highlight .json-key {
+  color: #7dd3fc;
+}
+
+.json-highlight .json-string {
+  color: #86efac;
+}
+
+.json-highlight .json-number {
+  color: #fcd34d;
+}
+
+.json-highlight .json-boolean {
+  color: #f472b6;
+}
+
+.json-highlight .json-null {
+  color: #a78bfa;
+}
+
+/* 终端样式 */
+.terminal-bg {
+  background-color: #0a0a0a;
+}
+
+.terminal-glow {
+  text-shadow: 0 0 5px currentColor;
+}
+
+/* 动画效果 */
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* 状态指示器颜色 */
+.status-up {
+  color: #10b981;
+}
+
+.status-down {
+  color: #ef4444;
+}
+
+.status-warning {
+  color: #f59e0b;
+}
+
+/* 背景色辅助类 */
+.bg-glass-dark {
+  background: rgba(15, 23, 42, 0.8);
+}
+
+.bg-glass-light {
+  background: rgba(30, 41, 59, 0.6);
+}
+
+/* 边框辅助类 */
+.border-glass {
+  border: 1px solid rgba(71, 85, 105, 0.4);
+}
+
+.border-glass-hover:hover {
+  border-color: rgba(100, 116, 139, 0.6);
+}
+
+/* 文字辅助类 */
+.text-muted {
+  color: rgb(148, 163, 184);
+}
+
+.text-accent {
+  color: rgb(34, 211, 238);
+}
