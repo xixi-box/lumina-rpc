@@ -237,16 +237,29 @@ public class RequestStatsService {
     }
 
     /**
-     * 获取实时统计（内存中）
+     * 获取实时统计（最近5分钟：数据库 + 内存）
      */
     public Map<String, Object> getRealtimeStats() {
         Map<String, Object> result = new HashMap<>();
+
+        // 1. 从数据库获取最近5分钟的聚合数据
+        LocalDateTime endTime = LocalDateTime.now();
+        LocalDateTime startTime = endTime.minusMinutes(5);
+        List<Object[]> dbResults = repository.aggregateByTime(startTime, endTime);
 
         long totalRequests = 0;
         long totalSuccess = 0;
         long totalFail = 0;
         long totalLatency = 0;
 
+        for (Object[] row : dbResults) {
+            totalRequests += ((Number) row[1]).longValue();
+            totalSuccess += ((Number) row[2]).longValue();
+            totalFail += ((Number) row[3]).longValue();
+            totalLatency += ((Number) row[4]).longValue();
+        }
+
+        // 2. 加上当前内存中的数据
         for (Map.Entry<String, ServiceStats> entry : currentStats.entrySet()) {
             ServiceStats stats = entry.getValue();
             totalRequests += stats.totalRequests.get();
