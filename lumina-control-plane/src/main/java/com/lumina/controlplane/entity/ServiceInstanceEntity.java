@@ -39,6 +39,14 @@ public class ServiceInstanceEntity {
     @Column(name = "service_metadata", columnDefinition = "TEXT")
     private String serviceMetadata;
 
+    /** 实例启动时间戳（毫秒），用于预热计算 */
+    @Column(name = "start_time")
+    private Long startTime;
+
+    /** 预热时间（毫秒），默认 60 秒 */
+    @Column(name = "warmup_period")
+    private Long warmupPeriod = 60000L;
+
     @Column(name = "last_heartbeat")
     private LocalDateTime lastHeartbeat;
 
@@ -57,6 +65,10 @@ public class ServiceInstanceEntity {
         if (expiresAt == null) {
             expiresAt = LocalDateTime.now().plusSeconds(90); // 90秒过期（容忍 2 次心跳丢失）
         }
+        // 如果没有设置 startTime，使用当前时间
+        if (startTime == null) {
+            startTime = System.currentTimeMillis();
+        }
     }
 
     @PreUpdate
@@ -67,6 +79,51 @@ public class ServiceInstanceEntity {
             expiresAt = lastHeartbeat.plusSeconds(90);
         }
     }
+
+    /**
+     * 计算预热权重
+     *
+     * @return 权重值 [0.0, 1.0]
+     */
+    public double getWarmupWeight() {
+        if (warmupPeriod == null || warmupPeriod <= 0) {
+            return 1.0;
+        }
+        if (startTime == null) {
+            return 1.0;
+        }
+
+        long uptime = System.currentTimeMillis() - startTime;
+        if (uptime >= warmupPeriod) {
+            return 1.0;
+        }
+
+        return (double) uptime / warmupPeriod;
+    }
+
+    /**
+     * 检查是否在预热期
+     */
+    public boolean isInWarmup() {
+        if (warmupPeriod == null || warmupPeriod <= 0 || startTime == null) {
+            return false;
+        }
+        return System.currentTimeMillis() - startTime < warmupPeriod;
+    }
+
+    /**
+     * 获取预热进度百分比
+     */
+    public int getWarmupProgress() {
+        if (warmupPeriod == null || warmupPeriod <= 0 || startTime == null) {
+            return 100;
+        }
+        long uptime = System.currentTimeMillis() - startTime;
+        int progress = (int) (uptime * 100 / warmupPeriod);
+        return Math.min(100, Math.max(0, progress));
+    }
+
+    // Getters and Setters
 
     public Long getId() {
         return id;
@@ -138,6 +195,22 @@ public class ServiceInstanceEntity {
 
     public void setServiceMetadata(String serviceMetadata) {
         this.serviceMetadata = serviceMetadata;
+    }
+
+    public Long getStartTime() {
+        return startTime;
+    }
+
+    public void setStartTime(Long startTime) {
+        this.startTime = startTime;
+    }
+
+    public Long getWarmupPeriod() {
+        return warmupPeriod;
+    }
+
+    public void setWarmupPeriod(Long warmupPeriod) {
+        this.warmupPeriod = warmupPeriod;
     }
 
     public LocalDateTime getLastHeartbeat() {

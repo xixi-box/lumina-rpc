@@ -139,15 +139,13 @@ public class ShutdownConfigController {
 
         service.updateActiveRequests(serviceName, activeRequests);
 
-        // 返回最新的配置（让 Provider 同步）
+        // 返回配置信息（停机信号通过 SSE 推送，不再通过心跳返回）
         ShutdownConfigEntity config = service.findByServiceName(serviceName);
 
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);
 
-        // 如果配置了停机，返回停机信号
         if (config != null) {
-            result.put("shuttingDown", config.getShuttingDown());
             result.put("timeoutMs", config.getTimeoutMs());
             result.put("enabled", config.getEnabled());
         }

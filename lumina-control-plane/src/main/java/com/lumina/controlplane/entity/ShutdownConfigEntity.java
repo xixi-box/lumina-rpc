@@ -7,7 +7,8 @@ import java.time.LocalDateTime;
 /**
  * 优雅停机配置实体
  *
- * 存储每个服务的停机配置
+ * 只存储配置信息，停机信号（shuttingDown）改为内存存储
+ * 原因：停机是瞬时操作，不应持久化导致服务重启后误触发
  */
 @Entity
 @Table(name = "shutdown_config")
@@ -28,10 +29,6 @@ public class ShutdownConfigEntity {
     /** 停机超时时间（毫秒） */
     @Column(nullable = false)
     private Long timeoutMs = 10000L;
-
-    /** 是否正在停机 */
-    @Column(nullable = false)
-    private Boolean shuttingDown = false;
 
     /** 正在处理的请求数（Provider 上报） */
     private Integer activeRequests = 0;
@@ -85,14 +82,6 @@ public class ShutdownConfigEntity {
 
     public void setTimeoutMs(Long timeoutMs) {
         this.timeoutMs = timeoutMs;
-    }
-
-    public Boolean getShuttingDown() {
-        return shuttingDown;
-    }
-
-    public void setShuttingDown(Boolean shuttingDown) {
-        this.shuttingDown = shuttingDown;
     }
 
     public Integer getActiveRequests() {

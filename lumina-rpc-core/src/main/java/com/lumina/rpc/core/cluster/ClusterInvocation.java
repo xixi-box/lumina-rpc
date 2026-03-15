@@ -113,7 +113,7 @@ public class ClusterInvocation {
     }
 
     /**
-     * 选择一个服务地址
+     * 选择一个服务地址（支持预热权重）
      *
      * @param excluded 排除的地址列表（已失败的）
      * @return 选中的地址
@@ -123,20 +123,80 @@ public class ClusterInvocation {
             return null;
         }
 
-        // 过滤排除的地址
-        List<InetSocketAddress> available = new java.util.ArrayList<>();
+        // 过滤排除的地址，保留 ServiceInstance 以便计算预热权重
+        List<ServiceInstance> availableInstances = new java.util.ArrayList<>();
         for (ServiceInstance instance : instances) {
             InetSocketAddress addr = new InetSocketAddress(instance.getHost(), instance.getPort());
             if (excluded == null || !excluded.contains(addr)) {
-                available.add(addr);
+                availableInstances.add(instance);
             }
         }
 
-        if (available.isEmpty()) {
+        if (availableInstances.isEmpty()) {
             return null;
         }
 
-        return loadBalancer.select(available, serviceName);
+        // 使用支持预热的负载均衡选择
+        return loadBalancer.selectInstance(availableInstances, serviceName);
+    }
+
+    /**
+     * 选择一个服务实例（支持预热权重）
+     *
+     * @param excluded 排除的地址列表（已失败的）
+     * @return 选中的服务实例
+     */
+    public ServiceInstance selectInstance(List<InetSocketAddress> excluded) {
+        if (instances == null || instances.isEmpty()) {
+            return null;
+        }
+
+        // 过滤排除的地址
+        List<ServiceInstance> availableInstances = new java.util.ArrayList<>();
+        for (ServiceInstance instance : instances) {
+            InetSocketAddress addr = new InetSocketAddress(instance.getHost(), instance.getPort());
+            if (excluded == null || !excluded.contains(addr)) {
+                availableInstances.add(instance);
+            }
+        }
+
+        if (availableInstances.isEmpty()) {
+            return null;
+        }
+
+        // 如果只有一个实例，直接返回
+        if (availableInstances.size() == 1) {
+            return availableInstances.get(0);
+        }
+
+        // 加权随机选择（考虑预热权重）
+        double[] weights = new double[availableInstances.size()];
+        double totalWeight = 0.0;
+
+        for (int i = 0; i < availableInstances.size(); i++) {
+            ServiceInstance instance = availableInstances.get(i);
+            double weight = instance.getWarmupWeight();
+            weights[i] = weight;
+            totalWeight += weight;
+        }
+
+        // 如果总权重为 0，给所有实例相等权重
+        if (totalWeight <= 0) {
+            return availableInstances.get((int) (Math.random() * availableInstances.size()));
+        }
+
+        // 加权随机选择
+        double random = Math.random() * totalWeight;
+        double cumulative = 0.0;
+
+        for (int i = 0; i < availableInstances.size(); i++) {
+            cumulative += weights[i];
+            if (random < cumulative) {
+                return availableInstances.get(i);
+            }
+        }
+
+        return availableInstances.get(availableInstances.size() - 1);
     }
 
     /**

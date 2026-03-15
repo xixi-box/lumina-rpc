@@ -134,7 +134,20 @@ public class ServiceInstanceService {
             entity.setServiceMetadata(instance.getServiceMetadata());
             entity.setLastHeartbeat(LocalDateTime.now());
             entity.setExpiresAt(LocalDateTime.now().plusSeconds(90)); // 90秒过期
-            logger.info("✅ Updated existing service instance: {} (idempotent update)", instanceId);
+
+            // 预热支持：保留原始 startTime，不因重注册而重置预热进度
+            // 只有当原实例从未设置 startTime 时才使用新值
+            if (entity.getStartTime() == null && instance.getStartTime() != null) {
+                entity.setStartTime(instance.getStartTime());
+            }
+
+            // warmupPeriod 可以更新（配置热更新场景）
+            if (instance.getWarmupPeriod() != null) {
+                entity.setWarmupPeriod(instance.getWarmupPeriod());
+            }
+
+            logger.info("✅ Updated existing service instance: {} (idempotent update, warmup={})",
+                    instanceId, entity.isInWarmup() ? "in-progress" : "completed");
             return serviceInstanceRepository.save(entity);
         } else {
             // 不存在：创建新记录
@@ -142,7 +155,14 @@ public class ServiceInstanceService {
             instance.setRegisteredAt(LocalDateTime.now());
             instance.setLastHeartbeat(LocalDateTime.now());
             instance.setExpiresAt(LocalDateTime.now().plusSeconds(90)); // 90秒过期
-            logger.info("✅ Created new service instance: {}", instanceId);
+
+            // 如果没有设置 startTime，使用当前时间
+            if (instance.getStartTime() == null) {
+                instance.setStartTime(System.currentTimeMillis());
+            }
+
+            logger.info("✅ Created new service instance: {} (warmup period: {}ms)",
+                    instanceId, instance.getWarmupPeriod());
             return serviceInstanceRepository.save(instance);
         }
     }

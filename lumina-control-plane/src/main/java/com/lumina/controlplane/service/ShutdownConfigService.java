@@ -9,9 +9,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 优雅停机配置服务
+ *
+ * 核心改进：停机信号改为内存存储，通过 SSE 实时推送
+ * - 避免服务重启后误触发停机
+ * - 停机是瞬时操作，不应持久化
  */
 @Service
 public class ShutdownConfigService {
@@ -19,9 +24,14 @@ public class ShutdownConfigService {
     private static final Logger logger = LoggerFactory.getLogger(ShutdownConfigService.class);
 
     private final ShutdownConfigRepository repository;
+    private final SseBroadcastService sseBroadcastService;
 
-    public ShutdownConfigService(ShutdownConfigRepository repository) {
+    /** 停机信号内存存储 - serviceName -> 是否正在停机 */
+    private final ConcurrentHashMap<String, Boolean> shutdownSignals = new ConcurrentHashMap<>();
+
+    public ShutdownConfigService(ShutdownConfigRepository repository, SseBroadcastService sseBroadcastService) {
         this.repository = repository;
+        this.sseBroadcastService = sseBroadcastService;
     }
 
     /**
@@ -53,7 +63,6 @@ public class ShutdownConfigService {
         config.setServiceName(serviceName);
         config.setEnabled(true);
         config.setTimeoutMs(10000L);
-        config.setShuttingDown(false);
         config.setActiveRequests(0);
 
         return repository.save(config);
@@ -78,27 +87,45 @@ public class ShutdownConfigService {
 
     /**
      * 触发停机
+     *
+     * 关键改进：只存内存，并通过 SSE 实时推送
      */
-    @Transactional
     public ShutdownConfigEntity triggerShutdown(String serviceName) {
+        // 1. 设置内存中的停机信号
+        shutdownSignals.put(serviceName, true);
+
+        // 2. 获取配置（用于返回和推送）
         ShutdownConfigEntity config = getOrCreate(serviceName);
-        config.setShuttingDown(true);
-        logger.info("🛑 Shutdown triggered for service: {}", serviceName);
-        return repository.save(config);
+
+        // 3. 通过 SSE 推送停机信号给 Provider
+        sseBroadcastService.broadcastShutdownSignal(serviceName, config.getTimeoutMs());
+
+        logger.info("🛑 Shutdown triggered for service: {} (SSE pushed, timeout: {}ms)",
+                serviceName, config.getTimeoutMs());
+
+        return config;
     }
 
     /**
      * 取消停机
      */
-    @Transactional
     public ShutdownConfigEntity cancelShutdown(String serviceName) {
-        ShutdownConfigEntity config = repository.findByServiceName(serviceName).orElse(null);
-        if (config != null) {
-            config.setShuttingDown(false);
-            logger.info("✅ Shutdown cancelled for service: {}", serviceName);
-            return repository.save(config);
+        // 1. 清除内存中的停机信号
+        Boolean removed = shutdownSignals.remove(serviceName);
+
+        if (removed != null) {
+            logger.info("✅ Shutdown signal cleared for service: {}", serviceName);
         }
-        return null;
+
+        // 2. 返回配置
+        return repository.findByServiceName(serviceName).orElse(null);
+    }
+
+    /**
+     * 检查服务是否在停机中（内存查询，非数据库）
+     */
+    public boolean isShuttingDown(String serviceName) {
+        return Boolean.TRUE.equals(shutdownSignals.get(serviceName));
     }
 
     /**
@@ -116,6 +143,7 @@ public class ShutdownConfigService {
      */
     @Transactional
     public void delete(String serviceName) {
+        shutdownSignals.remove(serviceName);
         repository.deleteByServiceName(serviceName);
     }
 
@@ -131,7 +159,8 @@ public class ShutdownConfigService {
         int totalActiveRequests = 0;
 
         for (ShutdownConfigEntity config : configs) {
-            if (Boolean.TRUE.equals(config.getShuttingDown())) {
+            // 从内存判断停机状态
+            if (isShuttingDown(config.getServiceName())) {
                 shuttingDown++;
             } else {
                 running++;

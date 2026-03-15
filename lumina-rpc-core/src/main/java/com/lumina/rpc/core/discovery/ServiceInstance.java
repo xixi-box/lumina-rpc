@@ -5,6 +5,11 @@ import java.util.Objects;
 /**
  * 服务实例
  * 表示一个可用的 RPC 服务提供者
+ *
+ * 支持服务预热：
+ * - startTime: 实例启动时间戳
+ * - warmupPeriod: 预热时间（毫秒）
+ * - 预热期间权重从 0 逐渐增加到 1
  */
 public class ServiceInstance {
 
@@ -13,6 +18,12 @@ public class ServiceInstance {
     private int port;
     private String version;
     private boolean healthy;
+
+    /** 实例启动时间戳（毫秒） */
+    private long startTime;
+
+    /** 预热时间（毫秒），默认 60 秒 */
+    private long warmupPeriod = 60000;
 
     public ServiceInstance() {
     }
@@ -23,6 +34,7 @@ public class ServiceInstance {
         this.port = port;
         this.version = "";
         this.healthy = true;
+        this.startTime = System.currentTimeMillis();
     }
 
     public ServiceInstance(String serviceName, String host, int port, String version) {
@@ -31,7 +43,62 @@ public class ServiceInstance {
         this.port = port;
         this.version = version;
         this.healthy = true;
+        this.startTime = System.currentTimeMillis();
     }
+
+    /**
+     * 计算预热权重
+     *
+     * @return 权重值 [0.0, 1.0]
+     */
+    public double getWarmupWeight() {
+        if (warmupPeriod <= 0) {
+            return 1.0; // 未配置预热，直接返回全量权重
+        }
+
+        long uptime = System.currentTimeMillis() - startTime;
+        if (uptime >= warmupPeriod) {
+            return 1.0; // 预热完成
+        }
+
+        // 线性增长
+        return (double) uptime / warmupPeriod;
+    }
+
+    /**
+     * 检查是否在预热期
+     */
+    public boolean isInWarmup() {
+        if (warmupPeriod <= 0) {
+            return false;
+        }
+        return System.currentTimeMillis() - startTime < warmupPeriod;
+    }
+
+    /**
+     * 获取预热进度百分比
+     */
+    public int getWarmupProgress() {
+        if (warmupPeriod <= 0) {
+            return 100;
+        }
+        long uptime = System.currentTimeMillis() - startTime;
+        int progress = (int) (uptime * 100 / warmupPeriod);
+        return Math.min(100, Math.max(0, progress));
+    }
+
+    /**
+     * 获取剩余预热时间（毫秒）
+     */
+    public long getRemainingWarmupTime() {
+        if (warmupPeriod <= 0) {
+            return 0;
+        }
+        long remaining = warmupPeriod - (System.currentTimeMillis() - startTime);
+        return Math.max(0, remaining);
+    }
+
+    // Getters and Setters
 
     public String getServiceName() {
         return serviceName;
@@ -73,6 +140,22 @@ public class ServiceInstance {
         this.healthy = healthy;
     }
 
+    public long getStartTime() {
+        return startTime;
+    }
+
+    public void setStartTime(long startTime) {
+        this.startTime = startTime;
+    }
+
+    public long getWarmupPeriod() {
+        return warmupPeriod;
+    }
+
+    public void setWarmupPeriod(long warmupPeriod) {
+        this.warmupPeriod = warmupPeriod;
+    }
+
     /**
      * 获取服务地址 key (host:port)
      */
@@ -101,6 +184,9 @@ public class ServiceInstance {
                 ", port=" + port +
                 ", version='" + version + '\'' +
                 ", healthy=" + healthy +
+                ", startTime=" + startTime +
+                ", warmupPeriod=" + warmupPeriod +
+                ", warmupProgress=" + getWarmupProgress() + "%" +
                 '}';
     }
 }

@@ -145,6 +145,9 @@ public class ServiceRegistryClient {
                 requestBody.put("serviceMetadata", serviceMetadata);
             }
 
+            // 添加启动时间（用于服务预热）
+            requestBody.put("startTime", System.currentTimeMillis());
+
             String json = objectMapper.writeValueAsString(requestBody);
 
             // ==================== 高亮日志：打印完整的注册 JSON ====================
@@ -162,7 +165,7 @@ public class ServiceRegistryClient {
 
             if (response.statusCode() == 200 || response.statusCode() == 201) {
                 registered = true;
-                logger.info("✅ Registered service instance: {} at {}:{} with metadata",
+                logger.info("✅ Registered service instance: {} at {}:{} with warmup enabled",
                         serviceName, host, port);
             } else {
                 logger.warn("Failed to register service instance: HTTP {}, body: {}",

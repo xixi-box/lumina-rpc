@@ -207,6 +207,16 @@ public class ServiceDiscoveryClient {
                 String status = (String) item.getOrDefault("status", "UP");
                 instance.setHealthy("UP".equalsIgnoreCase(status));
 
+                // 解析预热相关字段
+                Object startTimeObj = item.get("startTime");
+                if (startTimeObj != null) {
+                    instance.setStartTime(((Number) startTimeObj).longValue());
+                }
+                Object warmupPeriodObj = item.get("warmupPeriod");
+                if (warmupPeriodObj != null) {
+                    instance.setWarmupPeriod(((Number) warmupPeriodObj).longValue());
+                }
+
                 instances.add(instance);
             }
 
