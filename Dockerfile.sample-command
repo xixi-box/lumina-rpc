@@ -17,7 +17,7 @@ USER lumina
 
 ENV JAVA_OPTS="-Xms128m -Xmx256m"
 
-EXPOSE 20882
+EXPOSE 8083 9083
 
 RUN mkdir -p /app/config
 
