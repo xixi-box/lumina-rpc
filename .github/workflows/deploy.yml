@@ -108,7 +108,8 @@ jobs:
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "-----BEGIN OPENSSH PRIVATE KEY-----
+          cat > ~/.ssh/id_rsa << 'EOF'
+          -----BEGIN OPENSSH PRIVATE KEY-----
           b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAACFwAAAAdzc2gtcn
           NhAAAAAwEAAQAAAgEAlDEGSMN/8lHDdvOTIZ4aaGF77TAepN3A6/gGdKTWBSM85/1GZ+XU
           YjAMk0nprBiMYW227hkZ4OlbRlOLTD8JtvypuUHOxJ9Ie+HfTiOIkfKaM7fsRI/rDndSIw
@@ -156,7 +157,8 @@ jobs:
           /sVwvGwJQgwo0RF+hxNQm2XJ3MHIVYAm40E8K/Mb9C+lhouSfzhI1qo3q5uN9hTMwRhrlW
           /LkuHynIHYlZjDivJ7xPUqQSInnn5DT82Y4AHSWkjciwrc2uFnYot0pyhGzNDYieP/q67U
           WxkqMYb/rbEAAAAGZGVwbG95AQIDBAU=
-          -----END OPENSSH PRIVATE KEY-----" > ~/.ssh/id_rsa
+          -----END OPENSSH PRIVATE KEY-----
+          EOF
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H 120.26.186.0 >> ~/.ssh/known_hosts
 
