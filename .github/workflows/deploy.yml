@@ -110,7 +110,7 @@ jobs:
           mkdir -p ~/.ssh
           cp deploy_key.pem ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H 120.26.186.0 >> ~/.ssh/known_hosts
+          ssh-keyscan -H 120.26.186.0 >> ~/.ssh/known_hosts 2>/dev/null || true
 
       # Step 11: 推送 docker-compose.yml 到服务器
       - name: Deploy docker-compose.yml via SCP
