@@ -206,15 +206,10 @@ public class ProtectionConfigController {
         Map<String, Object> circuitBreaker = new HashMap<>();
         circuitBreaker.put("enabled", circuitBreakerEnabled);
         circuitBreaker.put("disabled", circuitBreakerDisabled);
-        circuitBreaker.put("open", 0);  // 运行时状态，需要 Consumer 上报
-        circuitBreaker.put("closed", circuitBreakerEnabled);
 
         Map<String, Object> rateLimiter = new HashMap<>();
         rateLimiter.put("enabled", rateLimiterEnabled);
         rateLimiter.put("disabled", rateLimiterDisabled);
-        rateLimiter.put("total", configs.size());
-        rateLimiter.put("totalPassed", service.getTotalPassed());
-        rateLimiter.put("totalRejected", service.getTotalRejected());
 
         Map<String, Object> result = new HashMap<>();
         result.put("circuitBreaker", circuitBreaker);
@@ -222,28 +217,6 @@ public class ProtectionConfigController {
         result.put("totalServices", configs.size());
         result.put("version", service.getGlobalVersion());
 
-        return ResponseEntity.ok(result);
-    }
-
-    /**
-     * 上报保护统计数据（Consumer 端调用）
-     */
-    @PostMapping("/stats/{serviceName}")
-    public ResponseEntity<Map<String, Object>> reportStats(
-            @PathVariable String serviceName,
-            @RequestBody Map<String, Object> stats) {
-
-        logger.info("Received stats report for service: {}", serviceName);
-
-        Long passed = stats.get("passed") != null ? ((Number) stats.get("passed")).longValue() : 0L;
-        Long rejected = stats.get("rejected") != null ? ((Number) stats.get("rejected")).longValue() : 0L;
-        String cbState = (String) stats.getOrDefault("circuitBreakerState", "CLOSED");
-
-        service.updateStats(serviceName, passed, rejected, cbState);
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("success", true);
-        result.put("serviceName", serviceName);
         return ResponseEntity.ok(result);
     }
 }

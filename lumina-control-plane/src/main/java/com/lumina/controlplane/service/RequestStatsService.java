@@ -11,13 +11,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 请求统计服务
  *
- * 收集和聚合 RPC 请求统计数据
+ * 收集和聚合 RPC 请求统计数据，所有数据持久化到数据库
  */
 @Service
 public class RequestStatsService {
@@ -26,136 +24,97 @@ public class RequestStatsService {
 
     private final RequestStatsRepository repository;
 
-    /** 内存中的实时统计（服务 -> 统计数据） */
-    private final ConcurrentHashMap<String, ServiceStats> currentStats = new ConcurrentHashMap<>();
-
-    /** 当前统计时间窗口 */
-    private volatile LocalDateTime currentWindowStart;
-
     public RequestStatsService(RequestStatsRepository repository) {
         this.repository = repository;
-        this.currentWindowStart = LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES);
-    }
-
-    /**
-     * 服务统计数据（内存）
-     */
-    private static class ServiceStats {
-        final AtomicLong totalRequests = new AtomicLong(0);
-        final AtomicLong successCount = new AtomicLong(0);
-        final AtomicLong failCount = new AtomicLong(0);
-        final AtomicLong totalLatency = new AtomicLong(0);
-        final AtomicLong maxLatency = new AtomicLong(0);
-        final AtomicLong minLatency = new AtomicLong(Long.MAX_VALUE);
-    }
-
-    /**
-     * 记录请求
-     */
-    public void recordRequest(String serviceName, boolean success, long latencyMs) {
-        ServiceStats stats = currentStats.computeIfAbsent(serviceName, k -> new ServiceStats());
-
-        stats.totalRequests.incrementAndGet();
-        stats.totalLatency.addAndGet(latencyMs);
-
-        if (success) {
-            stats.successCount.incrementAndGet();
-        } else {
-            stats.failCount.incrementAndGet();
-        }
-
-        // 更新最大最小延迟
-        long currentMax = stats.maxLatency.get();
-        while (latencyMs > currentMax) {
-            if (stats.maxLatency.compareAndSet(currentMax, latencyMs)) {
-                break;
-            }
-            currentMax = stats.maxLatency.get();
-        }
-
-        long currentMin = stats.minLatency.get();
-        while (latencyMs < currentMin) {
-            if (stats.minLatency.compareAndSet(currentMin, latencyMs)) {
-                break;
-            }
-            currentMin = stats.minLatency.get();
-        }
     }
 
     /**
      * 记录聚合统计数据（Consumer 端上报）
      */
+    @Transactional
     public void recordAggregate(String serviceName, long successCount, long failCount, long avgLatency) {
-        ServiceStats stats = currentStats.computeIfAbsent(serviceName, k -> new ServiceStats());
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES);
 
-        long totalCount = successCount + failCount;
-        stats.totalRequests.addAndGet(totalCount);
-        stats.successCount.addAndGet(successCount);
-        stats.failCount.addAndGet(failCount);
-        stats.totalLatency.addAndGet(avgLatency * totalCount);
+        // 查找当前分钟的记录
+        List<RequestStatsEntity> existing = repository.findByServiceNameAndTimeRange(
+                serviceName, now, now.plusMinutes(1));
 
-        // 更新最大最小延迟（使用平均值作为近似）
-        if (avgLatency > 0) {
-            long currentMax = stats.maxLatency.get();
-            while (avgLatency > currentMax) {
-                if (stats.maxLatency.compareAndSet(currentMax, avgLatency)) {
-                    break;
+        RequestStatsEntity entity;
+        if (existing.isEmpty()) {
+            // 创建新记录
+            entity = new RequestStatsEntity();
+            entity.setServiceName(serviceName);
+            entity.setStatTime(now);
+            entity.setTotalRequests(successCount + failCount);
+            entity.setSuccessCount(successCount);
+            entity.setFailCount(failCount);
+            entity.setTotalLatency(avgLatency * (successCount + failCount));
+            entity.setMaxLatency(avgLatency);
+            entity.setMinLatency(avgLatency > 0 ? avgLatency : 0);
+        } else {
+            // 累加到现有记录
+            entity = existing.get(0);
+            long totalCount = successCount + failCount;
+            entity.setTotalRequests(entity.getTotalRequests() + totalCount);
+            entity.setSuccessCount(entity.getSuccessCount() + successCount);
+            entity.setFailCount(entity.getFailCount() + failCount);
+            entity.setTotalLatency(entity.getTotalLatency() + avgLatency * totalCount);
+
+            if (avgLatency > 0) {
+                if (entity.getMaxLatency() == null || avgLatency > entity.getMaxLatency()) {
+                    entity.setMaxLatency(avgLatency);
                 }
-                currentMax = stats.maxLatency.get();
-            }
-
-            long currentMin = stats.minLatency.get();
-            while (avgLatency < currentMin) {
-                if (stats.minLatency.compareAndSet(currentMin, avgLatency)) {
-                    break;
+                if (entity.getMinLatency() == null || entity.getMinLatency() == 0 || avgLatency < entity.getMinLatency()) {
+                    entity.setMinLatency(avgLatency);
                 }
-                currentMin = stats.minLatency.get();
             }
         }
 
+        repository.save(entity);
         logger.debug("Recorded aggregate stats for {}: success={}, fail={}, latency={}ms",
                 serviceName, successCount, failCount, avgLatency);
     }
 
     /**
-     * 定时持久化统计数据（每分钟执行）
+     * 记录单次请求（直接持久化）
      */
-    @Scheduled(fixedRate = 60000)
     @Transactional
-    public void flushStats() {
-        if (currentStats.isEmpty()) {
-            return;
-        }
-
+    public void recordRequest(String serviceName, boolean success, long latencyMs) {
         LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES);
 
-        // 持久化当前窗口的数据
-        int serviceCount = currentStats.size();
-        for (Map.Entry<String, ServiceStats> entry : currentStats.entrySet()) {
-            String serviceName = entry.getKey();
-            ServiceStats stats = entry.getValue();
+        List<RequestStatsEntity> existing = repository.findByServiceNameAndTimeRange(
+                serviceName, now, now.plusMinutes(1));
 
-            RequestStatsEntity entity = new RequestStatsEntity();
+        RequestStatsEntity entity;
+        if (existing.isEmpty()) {
+            entity = new RequestStatsEntity();
             entity.setServiceName(serviceName);
-            entity.setStatTime(currentWindowStart);
-            entity.setTotalRequests(stats.totalRequests.get());
-            entity.setSuccessCount(stats.successCount.get());
-            entity.setFailCount(stats.failCount.get());
-            entity.setTotalLatency(stats.totalLatency.get());
-            entity.setMaxLatency(stats.maxLatency.get());
-            entity.setMinLatency(stats.minLatency.get() == Long.MAX_VALUE ? 0 : stats.minLatency.get());
+            entity.setStatTime(now);
+            entity.setTotalRequests(1L);
+            entity.setSuccessCount(success ? 1L : 0L);
+            entity.setFailCount(success ? 0L : 1L);
+            entity.setTotalLatency(latencyMs);
+            entity.setMaxLatency(latencyMs);
+            entity.setMinLatency(latencyMs);
+        } else {
+            entity = existing.get(0);
+            entity.setTotalRequests(entity.getTotalRequests() + 1);
+            if (success) {
+                entity.setSuccessCount(entity.getSuccessCount() + 1);
+            } else {
+                entity.setFailCount(entity.getFailCount() + 1);
+            }
+            entity.setTotalLatency(entity.getTotalLatency() + latencyMs);
 
-            repository.save(entity);
-            logger.debug("Flushed stats for {}: {} requests", serviceName, stats.totalRequests.get());
+            if (latencyMs > entity.getMaxLatency()) {
+                entity.setMaxLatency(latencyMs);
+            }
+            if (entity.getMinLatency() == null || entity.getMinLatency() == 0 || latencyMs < entity.getMinLatency()) {
+                entity.setMinLatency(latencyMs);
+            }
         }
 
-        // 重置统计
-        currentStats.clear();
-        currentWindowStart = now;
-
-        if (serviceCount > 0) {
-            logger.info("Flushed request stats for {} services", serviceCount);
-        }
+        repository.save(entity);
     }
 
     /**
@@ -176,38 +135,11 @@ public class RequestStatsService {
             item.put("failCount", row[3]);
             item.put("totalLatency", row[4]);
 
-            // 计算平均延迟
             Long total = (Long) row[1];
             Long latency = (Long) row[4];
             item.put("avgLatency", total > 0 ? latency / total : 0);
 
             trendData.add(item);
-        }
-
-        // 添加当前窗口的实时数据
-        if (!currentStats.isEmpty()) {
-            Map<String, Object> currentData = new HashMap<>();
-            currentData.put("time", currentWindowStart);
-
-            long totalRequests = 0;
-            long successCount = 0;
-            long failCount = 0;
-            long totalLatency = 0;
-
-            for (ServiceStats stats : currentStats.values()) {
-                totalRequests += stats.totalRequests.get();
-                successCount += stats.successCount.get();
-                failCount += stats.failCount.get();
-                totalLatency += stats.totalLatency.get();
-            }
-
-            currentData.put("totalRequests", totalRequests);
-            currentData.put("successCount", successCount);
-            currentData.put("failCount", failCount);
-            currentData.put("totalLatency", totalLatency);
-            currentData.put("avgLatency", totalRequests > 0 ? totalLatency / totalRequests : 0);
-
-            trendData.add(currentData);
         }
 
         return trendData;
@@ -237,14 +169,12 @@ public class RequestStatsService {
     }
 
     /**
-     * 获取实时统计（最近5分钟：数据库 + 内存）
+     * 获取实时统计（最近5分钟）
      */
     public Map<String, Object> getRealtimeStats() {
-        Map<String, Object> result = new HashMap<>();
-
-        // 1. 从数据库获取最近5分钟的聚合数据
         LocalDateTime endTime = LocalDateTime.now();
         LocalDateTime startTime = endTime.minusMinutes(5);
+
         List<Object[]> dbResults = repository.aggregateByTime(startTime, endTime);
 
         long totalRequests = 0;
@@ -259,20 +189,11 @@ public class RequestStatsService {
             totalLatency += ((Number) row[4]).longValue();
         }
 
-        // 2. 加上当前内存中的数据
-        for (Map.Entry<String, ServiceStats> entry : currentStats.entrySet()) {
-            ServiceStats stats = entry.getValue();
-            totalRequests += stats.totalRequests.get();
-            totalSuccess += stats.successCount.get();
-            totalFail += stats.failCount.get();
-            totalLatency += stats.totalLatency.get();
-        }
-
+        Map<String, Object> result = new HashMap<>();
         result.put("totalRequests", totalRequests);
         result.put("successCount", totalSuccess);
         result.put("failCount", totalFail);
         result.put("avgLatency", totalRequests > 0 ? totalLatency / totalRequests : 0);
-        result.put("serviceCount", currentStats.size());
 
         return result;
     }

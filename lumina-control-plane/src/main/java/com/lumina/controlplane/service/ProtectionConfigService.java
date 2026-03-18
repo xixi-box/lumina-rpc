@@ -1,15 +1,12 @@
 package com.lumina.controlplane.service;
 
 import com.lumina.controlplane.entity.ProtectionConfigEntity;
-import com.lumina.controlplane.entity.ProtectionStatsEntity;
 import com.lumina.controlplane.repository.ProtectionConfigRepository;
-import com.lumina.controlplane.repository.ProtectionStatsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,7 +15,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * 保护配置服务
  *
  * 管理熔断器和限流器的动态配置
- * 统计数据持久化存储，解决服务重启后丢失的问题
  */
 @Service
 public class ProtectionConfigService {
@@ -26,7 +22,6 @@ public class ProtectionConfigService {
     private static final Logger logger = LoggerFactory.getLogger(ProtectionConfigService.class);
 
     private final ProtectionConfigRepository repository;
-    private final ProtectionStatsRepository statsRepository;
 
     /** 配置缓存（用于快速查询） */
     private final Map<String, ProtectionConfigEntity> configCache = new ConcurrentHashMap<>();
@@ -34,9 +29,8 @@ public class ProtectionConfigService {
     /** 配置版本号（用于检测更新） */
     private volatile long globalVersion = System.currentTimeMillis();
 
-    public ProtectionConfigService(ProtectionConfigRepository repository, ProtectionStatsRepository statsRepository) {
+    public ProtectionConfigService(ProtectionConfigRepository repository) {
         this.repository = repository;
-        this.statsRepository = statsRepository;
         loadAllConfigs();
     }
 
@@ -53,58 +47,21 @@ public class ProtectionConfigService {
     }
 
     /**
-     * 获取或创建统计数据实体
-     */
-    private ProtectionStatsEntity getOrCreateStats(String serviceName) {
-        return statsRepository.findByServiceName(serviceName)
-                .orElseGet(() -> {
-                    ProtectionStatsEntity stats = new ProtectionStatsEntity();
-                    stats.setServiceName(serviceName);
-                    return statsRepository.save(stats);
-                });
-    }
-
-    /**
-     * 获取所有配置（带运行时统计）
+     * 获取所有配置
      */
     public List<ProtectionConfigEntity> findAll() {
-        List<ProtectionConfigEntity> configs = repository.findAll();
-        // 为每个配置附加运行时统计数据（从持久化存储读取）
-        for (ProtectionConfigEntity config : configs) {
-            String serviceName = config.getServiceName();
-            statsRepository.findByServiceName(serviceName).ifPresent(stats -> {
-                config.setRateLimiterPassed(stats.getRateLimiterPassed());
-                config.setRateLimiterRejected(stats.getRateLimiterRejected());
-                config.setCircuitBreakerState(stats.getCircuitBreakerState());
-            });
-        }
-        return configs;
+        return repository.findAll();
     }
 
     /**
-     * 根据 serviceName 获取配置（优先从缓存，带运行时统计）
+     * 根据 serviceName 获取配置（优先从缓存）
      */
     public ProtectionConfigEntity findByServiceName(String serviceName) {
-        // 先查缓存
         ProtectionConfigEntity cached = configCache.get(serviceName);
-        ProtectionConfigEntity config;
         if (cached != null) {
-            config = cached;
-        } else {
-            // 缓存没有则查数据库
-            config = repository.findByServiceName(serviceName).orElse(null);
+            return cached;
         }
-
-        // 如果找到配置，附加统计数据（从持久化存储读取）
-        if (config != null) {
-            statsRepository.findByServiceName(serviceName).ifPresent(stats -> {
-                config.setRateLimiterPassed(stats.getRateLimiterPassed());
-                config.setRateLimiterRejected(stats.getRateLimiterRejected());
-                config.setCircuitBreakerState(stats.getCircuitBreakerState());
-            });
-        }
-
-        return config;
+        return repository.findByServiceName(serviceName).orElse(null);
     }
 
     /**
@@ -154,7 +111,6 @@ public class ProtectionConfigService {
     @Transactional
     public void delete(String serviceName) {
         repository.deleteByServiceName(serviceName);
-        statsRepository.deleteByServiceName(serviceName);
         configCache.remove(serviceName);
         globalVersion = System.currentTimeMillis();
         logger.info("Deleted protection config for service: {}", serviceName);
@@ -254,64 +210,5 @@ public class ProtectionConfigService {
      */
     public int getCacheSize() {
         return configCache.size();
-    }
-
-    /**
-     * 更新统计数据（Consumer 上报）- 持久化存储
-     */
-    @Transactional
-    public void updateStats(String serviceName, Long passed, Long rejected, String circuitBreakerState) {
-        ProtectionStatsEntity stats = getOrCreateStats(serviceName);
-
-        stats.setRateLimiterPassed(passed);
-        stats.setRateLimiterRejected(rejected);
-        stats.setCircuitBreakerState(circuitBreakerState);
-
-        // 如果熔断器状态变为 OPEN，记录熔断时间
-        if ("OPEN".equals(circuitBreakerState) && !"OPEN".equals(stats.getCircuitBreakerState())) {
-            stats.setLastTripTime(LocalDateTime.now());
-            stats.setCircuitBreakerOpenCount(stats.getCircuitBreakerOpenCount() + 1);
-        }
-
-        statsRepository.save(stats);
-
-        logger.debug("Updated stats for {}: passed={}, rejected={}, cbState={}",
-                serviceName, passed, rejected, circuitBreakerState);
-    }
-
-    /**
-     * 获取总通过数
-     */
-    public long getTotalPassed() {
-        return statsRepository.findAll().stream()
-                .mapToLong(ProtectionStatsEntity::getRateLimiterPassed)
-                .sum();
-    }
-
-    /**
-     * 获取总拒绝数
-     */
-    public long getTotalRejected() {
-        return statsRepository.findAll().stream()
-                .mapToLong(ProtectionStatsEntity::getRateLimiterRejected)
-                .sum();
-    }
-
-    /**
-     * 获取服务通过数
-     */
-    public long getPassed(String serviceName) {
-        return statsRepository.findByServiceName(serviceName)
-                .map(ProtectionStatsEntity::getRateLimiterPassed)
-                .orElse(0L);
-    }
-
-    /**
-     * 获取服务拒绝数
-     */
-    public long getRejected(String serviceName) {
-        return statsRepository.findByServiceName(serviceName)
-                .map(ProtectionStatsEntity::getRateLimiterRejected)
-                .orElse(0L);
     }
 }

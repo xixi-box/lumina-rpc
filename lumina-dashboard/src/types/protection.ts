@@ -10,8 +10,6 @@ export interface ProtectionConfig {
   circuitBreakerState?: string
   rateLimiterEnabled: boolean
   rateLimiterPermits: number
-  rateLimiterPassed?: number
-  rateLimiterRejected?: number
   clusterStrategy: string
   retries: number
   timeoutMs: number

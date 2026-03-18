@@ -1,8 +1,6 @@
 package com.lumina.rpc.core.protection;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.lumina.rpc.core.circuitbreaker.CircuitBreakerManager;
-import com.lumina.rpc.core.circuitbreaker.RateLimiterManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -118,9 +116,6 @@ public class ProtectionConfigClient {
      */
     public void refreshConfigs() {
         try {
-            // 先上报统计数据
-            reportAllStats();
-
             // 1. 检查版本号
             long remoteVersion = fetchRemoteVersion();
             if (remoteVersion <= localVersion && localVersion > 0) {
@@ -136,24 +131,6 @@ public class ProtectionConfigClient {
 
         } catch (Exception e) {
             logger.warn("Failed to refresh protection configs: {}", e.getMessage());
-        }
-    }
-
-    /**
-     * 上报所有服务的统计数据
-     */
-    private void reportAllStats() {
-        // 遍历所有已配置的服务，上报统计数据
-        for (String serviceName : configCache.keySet()) {
-            try {
-                long passed = RateLimiterManager.getInstance().getPassedCount(serviceName);
-                long rejected = RateLimiterManager.getInstance().getRejectedCount(serviceName);
-                String cbState = CircuitBreakerManager.getInstance().getState(serviceName);
-
-                reportStats(serviceName, passed, rejected, cbState);
-            } catch (Exception e) {
-                logger.debug("Failed to report stats for {}: {}", serviceName, e.getMessage());
-            }
         }
     }
 
@@ -272,44 +249,6 @@ public class ProtectionConfigClient {
             instance.stopRefresh();
             instance.clearCache();
             instance = null;
-        }
-    }
-
-    /**
-     * 上报统计数据到控制面
-     */
-    public void reportStats(String serviceName, long passed, long rejected, String circuitBreakerState) {
-        try {
-            String url = controlPlaneUrl + "/api/v1/protection/stats/" + serviceName;
-
-            Map<String, Object> stats = Map.of(
-                    "passed", passed,
-                    "rejected", rejected,
-                    "circuitBreakerState", circuitBreakerState
-            );
-
-            String body = objectMapper.writeValueAsString(stats);
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(5))
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(body))
-                    .build();
-
-            httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                    .thenAccept(response -> {
-                        if (response.statusCode() == 200) {
-                            logger.debug("Stats reported for {}: passed={}, rejected={}", serviceName, passed, rejected);
-                        }
-                    })
-                    .exceptionally(e -> {
-                        logger.debug("Failed to report stats for {}: {}", serviceName, e.getMessage());
-                        return null;
-                    });
-
-        } catch (Exception e) {
-            logger.debug("Failed to report stats for {}: {}", serviceName, e.getMessage());
         }
     }
 }

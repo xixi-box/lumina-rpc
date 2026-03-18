@@ -82,9 +82,6 @@
                   <div class="text-xs text-slate-400">
                     限额: {{ config.rateLimiterPermits }}/s
                   </div>
-                  <div v-if="config.rateLimiterPassed !== undefined" class="text-xs text-slate-500">
-                    通过: {{ config.rateLimiterPassed }} | 拒绝: {{ config.rateLimiterRejected }}
-                  </div>
                 </div>
               </td>
               <td class="py-3">

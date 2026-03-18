@@ -51,20 +51,6 @@ public class ProtectionConfigEntity {
     @Column(name = "rate_limiter_permits")
     private Integer rateLimiterPermits = 100;
 
-    // ==================== 运行时统计（不持久化） ====================
-
-    /** 限流器通过数 */
-    @Transient
-    private Long rateLimiterPassed = 0L;
-
-    /** 限流器拒绝数 */
-    @Transient
-    private Long rateLimiterRejected = 0L;
-
-    /** 熔断器当前状态 */
-    @Transient
-    private String circuitBreakerState = "CLOSED";
-
     // ==================== 集群配置 ====================
 
     /** 默认集群策略 */
@@ -170,30 +156,6 @@ public class ProtectionConfigEntity {
 
     public void setRateLimiterPermits(Integer rateLimiterPermits) {
         this.rateLimiterPermits = rateLimiterPermits;
-    }
-
-    public Long getRateLimiterPassed() {
-        return rateLimiterPassed;
-    }
-
-    public void setRateLimiterPassed(Long rateLimiterPassed) {
-        this.rateLimiterPassed = rateLimiterPassed;
-    }
-
-    public Long getRateLimiterRejected() {
-        return rateLimiterRejected;
-    }
-
-    public void setRateLimiterRejected(Long rateLimiterRejected) {
-        this.rateLimiterRejected = rateLimiterRejected;
-    }
-
-    public String getCircuitBreakerState() {
-        return circuitBreakerState;
-    }
-
-    public void setCircuitBreakerState(String circuitBreakerState) {
-        this.circuitBreakerState = circuitBreakerState;
     }
 
     public String getClusterStrategy() {
