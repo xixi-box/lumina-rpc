@@ -132,11 +132,15 @@ jobs:
 
           echo "=== Step 1: 备份当前运行状态 ==="
           BACKUP_FILE="backup_$(date +%Y%m%d_%H%M%S).txt"
-          sudo docker ps --format "{{.Names}} {{.Status}}" > "$BACKUP_FILE" || true
+          sudo docker ps --format "{{.Names}} {{.Status}}" > "$BACKUP_FILE" 2>/dev/null || echo "No running containers"
           echo "Backup saved to $BACKUP_FILE"
 
-          echo "=== Step 2: 停止 lumina 相关容器 ==="
-          sudo docker compose down
+          echo "=== Step 2: 停止 lumina 相关容器（如果存在）==="
+          if [ -f "docker-compose.yml" ]; then
+            sudo docker compose down 2>/dev/null || echo "No containers to stop (first run or already stopped)"
+          else
+            echo "docker-compose.yml not found, skipping stop (first run)"
+          fi
 
           echo "=== Step 3: 拉取新版本镜像 ==="
           sudo docker compose pull
