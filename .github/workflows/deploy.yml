@@ -4,10 +4,21 @@ on:
   push:
     branches:
       - master
+  workflow_dispatch:
 
 env:
+  # 单点真实来源 (Single Source of Truth) - 所有镜像和配置统一从这里定义
   REGISTRY: crpi-r1wme86kfaw7rr3f.cn-shanghai.personal.cr.aliyuncs.com
   IMAGE_NAME: wangshun_build/wangshun_build
+  ALIYUN_USERNAME: aliyun4384550071
+  ALIYUN_PASSWORD: wangshun817
+
+  # 基础设施配置 (IaC)
+  MYSQL_ROOT_PASSWORD: lumina123
+  MYSQL_USER: lumina
+  MYSQL_PASSWORD: lumina123
+  CONTROL_PLANE_PORT: 8080
+  DASHBOARD_PORT: 3000
 
 jobs:
   build-and-push:
@@ -49,8 +60,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: aliyun4384550071
-          password: wangshun817
+          username: ${{ env.ALIYUN_USERNAME }}
+          password: ${{ env.ALIYUN_PASSWORD }}
 
       # Step 6: 生成版本标签
       - name: Generate version tag
@@ -115,20 +126,193 @@ jobs:
       VERSION: ${{ needs.build-and-push.outputs.VERSION }}
 
     steps:
-      # Step 1: 检出代码（获取最新的 docker-compose.yml）
-
-      # Step 2: 登录阿里云 ACR
+      # Step 1: 登录阿里云 ACR
       - name: Login to Aliyun ACR
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: aliyun4384550071
-          password: wangshun817
+          username: ${{ env.ALIYUN_USERNAME }}
+          password: ${{ env.ALIYUN_PASSWORD }}
 
-      # Step 3: 本地部署 - 带健康检查和回滚机制
-      - name: Deploy with Docker Compose
+      # Step 2: 本地部署 - 基础设施即代码 (IaC)
+      - name: Deploy with Docker Compose (IaC)
         run: |
-          cd ${{ github.workspace }}
+          mkdir -p lumina-rpc && cd lumina-rpc
+
+          echo "=== Infrastructure as Code - 生成 docker-compose.yml ==="
+
+          # 单点真实来源 (SSOT) - docker-compose.yml 完全由 CI/CD 生成
+          cat > docker-compose.yml << 'EOF'
+          # ============================================================
+          # Lumina-RPC Docker Compose
+          # 由 GitHub Actions 自动生成 - 基础设施即代码 (IaC)
+          # 版本: ${{ env.VERSION }}
+          # 生成时间: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          # ============================================================
+
+          services:
+            # -------------------------------------------------------
+            # MySQL 数据库
+            # -------------------------------------------------------
+            mysql:
+              image: mysql:8.0
+              container_name: lumina-mysql
+              hostname: lumina-mysql
+              restart: unless-stopped
+              environment:
+                MYSQL_ROOT_PASSWORD: ${{ env.MYSQL_ROOT_PASSWORD }}
+                MYSQL_DATABASE: lumina
+                MYSQL_USER: ${{ env.MYSQL_USER }}
+                MYSQL_PASSWORD: ${{ env.MYSQL_PASSWORD }}
+              ports:
+                - "3306:3306"
+              networks:
+                - lumina-net
+              volumes:
+                - mysql-data:/var/lib/mysql
+              command:
+                - --character-set-server=utf8mb4
+                - --collation-server=utf8mb4_unicode_ci
+                - --default-authentication-plugin=mysql_native_password
+              deploy:
+                resources:
+                  limits:
+                    memory: 512M
+
+            # -------------------------------------------------------
+            # Control Plane（控制面）
+            # -------------------------------------------------------
+            control-plane:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:control-plane
+              container_name: lumina-control-plane
+              restart: unless-stopped
+              environment:
+                JAVA_OPTS: "-Xms128m -Xmx256m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError"
+                SPRING_PROFILES_ACTIVE: prod
+                MYSQL_URL: jdbc:mysql://lumina-mysql:3306/lumina?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+                MYSQL_USER: ${{ env.MYSQL_USER }}
+                MYSQL_PASSWORD: ${{ env.MYSQL_PASSWORD }}
+                TZ: Asia/Shanghai
+              ports:
+                - "${{ env.CONTROL_PLANE_PORT }}:8080"
+              networks:
+                - lumina-net
+              depends_on:
+                - mysql
+              deploy:
+                resources:
+                  limits:
+                    memory: 384M
+              logging:
+                driver: "json-file"
+                options:
+                  max-size: "50m"
+                  max-file: "3"
+
+            # -------------------------------------------------------
+            # Dashboard（前端监控面板）
+            # -------------------------------------------------------
+            dashboard:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dashboard
+              container_name: lumina-dashboard
+              restart: unless-stopped
+              ports:
+                - "${{ env.DASHBOARD_PORT }}:80"
+              depends_on:
+                - control-plane
+              networks:
+                - lumina-net
+              deploy:
+                resources:
+                  limits:
+                    memory: 256M
+
+            # -------------------------------------------------------
+            # Warp Engine Service（曲率引擎服务）
+            # -------------------------------------------------------
+            sample-engine:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:engine
+              container_name: lumina-sample-engine
+              restart: unless-stopped
+              environment:
+                JAVA_OPTS: "-Xms128m -Xmx256m -XX:+ExitOnOutOfMemoryError"
+                LUMINA_RPC_CONTROL_PLANE_URL: http://control-plane:8080
+                LUMINA_RPC_SERVER_HOST: sample-engine
+                TZ: Asia/Shanghai
+              ports:
+                - "8081:8081"
+                - "9081:9081"
+              networks:
+                - lumina-net
+              depends_on:
+                - control-plane
+              deploy:
+                resources:
+                  limits:
+                    memory: 384M
+
+            # -------------------------------------------------------
+            # Deep Space Radar Service（深空雷达服务）
+            # -------------------------------------------------------
+            sample-radar:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:radar
+              container_name: lumina-sample-radar
+              restart: unless-stopped
+              environment:
+                JAVA_OPTS: "-Xms128m -Xmx256m -XX:+ExitOnOutOfMemoryError"
+                LUMINA_RPC_CONTROL_PLANE_URL: http://control-plane:8080
+                LUMINA_RPC_SERVER_HOST: sample-radar
+                TZ: Asia/Shanghai
+              ports:
+                - "8082:8082"
+                - "9082:9082"
+              networks:
+                - lumina-net
+              depends_on:
+                - control-plane
+              deploy:
+                resources:
+                  limits:
+                    memory: 384M
+
+            # -------------------------------------------------------
+            # Fleet Command Gateway（舰队指挥网关）
+            # -------------------------------------------------------
+            sample-command:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:command
+              container_name: lumina-sample-command
+              restart: unless-stopped
+              environment:
+                JAVA_OPTS: "-Xms128m -Xmx256m -XX:+ExitOnOutOfMemoryError"
+                LUMINA_RPC_CONTROL_PLANE_URL: http://control-plane:8080
+                TZ: Asia/Shanghai
+              ports:
+                - "8083:8083"
+                - "9083:9083"
+              networks:
+                - lumina-net
+              depends_on:
+                - control-plane
+                - sample-engine
+                - sample-radar
+              deploy:
+                resources:
+                  limits:
+                    memory: 512M
+
+          # -------------------------------------------------------
+          # 网络定义
+          # -------------------------------------------------------
+          networks:
+            lumina-net:
+              driver: bridge
+
+          # -------------------------------------------------------
+          # 数据卷定义
+          # -------------------------------------------------------
+          volumes:
+            mysql-data:
+          EOF
 
           echo "=== Step 1: 备份当前运行状态 ==="
           BACKUP_FILE="backup_$(date +%Y%m%d_%H%M%S).txt"
@@ -136,11 +320,7 @@ jobs:
           echo "Backup saved to $BACKUP_FILE"
 
           echo "=== Step 2: 停止 lumina 相关容器（如果存在）==="
-          if [ -f "docker-compose.yml" ]; then
-            sudo docker compose down 2>/dev/null || echo "No containers to stop (first run or already stopped)"
-          else
-            echo "docker-compose.yml not found, skipping stop (first run)"
-          fi
+          sudo docker compose down 2>/dev/null || echo "No containers to stop (first run or already stopped)"
 
           echo "=== Step 3: 拉取新版本镜像 ==="
           sudo docker compose pull
@@ -192,3 +372,4 @@ jobs:
           sudo docker image prune -f
 
           echo "=== 部署成功！版本: $VERSION ==="
+          echo "=== 基础设施版本: $(grep '生成时间' docker-compose.yml) ==="
