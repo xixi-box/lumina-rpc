@@ -325,21 +325,21 @@ jobs:
 
           echo "=== Step 1: 备份当前运行状态 ==="
           BACKUP_FILE="backup_$(date +%Y%m%d_%H%M%S).txt"
-          sudo docker ps --format "{{.Names}} {{.Status}}" > "$BACKUP_FILE" 2>/dev/null || echo "No running containers"
+          docker ps --format "{{.Names}} {{.Status}}" > "$BACKUP_FILE" 2>/dev/null || echo "No running containers"
           echo "Backup saved to $BACKUP_FILE"
 
           echo "=== Step 2: 停止 lumina 相关容器（如果存在）==="
-          sudo docker compose down 2>/dev/null || echo "No containers to stop (first run or already stopped)"
+          docker compose down 2>/dev/null || echo "No containers to stop (first run or already stopped)"
 
           echo "=== Step 3: 拉取新版本镜像 ==="
-          sudo docker compose pull
+          docker compose pull
 
           echo "=== Step 4: 顺序启动服务 ==="
-          sudo docker compose up -d mysql
+          docker compose up -d mysql
           sleep 20
 
           for i in {1..30}; do
-            if sudo docker exec lumina-mysql mysql -ulumina -plumina123 -e "SELECT 1" 2>/dev/null; then
+            if docker exec lumina-mysql mysql -ulumina -plumina123 -e "SELECT 1" 2>/dev/null; then
               echo "MySQL is ready!"
               break
             fi
@@ -352,7 +352,7 @@ jobs:
           done
 
           echo "Starting Control Plane..."
-          sudo docker compose up -d control-plane
+          docker compose up -d control-plane
           sleep 15
 
           for i in {1..20}; do
@@ -362,7 +362,7 @@ jobs:
             fi
             if [ $i -eq 20 ]; then
               echo "Control Plane health check failed"
-              sudo docker compose logs control-plane --tail 50
+              docker compose logs control-plane --tail 50
               exit 1
             fi
             echo "Waiting for Control Plane... ($i/20)"
@@ -370,15 +370,15 @@ jobs:
           done
 
           echo "Starting Engine, Radar, Command, Dashboard..."
-          sudo docker compose up -d
+          docker compose up -d
 
           sleep 10
 
           echo "=== Step 5: 验证服务状态 ==="
-          sudo docker ps | grep lumina
+          docker ps | grep lumina
 
           echo "=== Step 6: 清理旧镜像 ==="
-          sudo docker image prune -f
+          docker image prune -f
 
           echo "=== 部署成功！版本: $VERSION ==="
           echo "=== 基础设施版本: $(grep '生成时间' docker-compose.yml) ==="
