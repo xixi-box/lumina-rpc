@@ -2,9 +2,17 @@ name: Deploy to Production
 
 on:
   push:
-    branches:
-      - master
+    branches: [main, master]
   workflow_dispatch:
+    inputs:
+      target_env:
+        description: '请选择要部署的目标服务器 (默认推送到阿里云)'
+        required: true
+        default: 'aliyun'
+        type: choice
+        options:
+          - aliyun
+          - wsl
 
 env:
   # 单点真实来源 (Single Source of Truth) - 所有镜像和配置统一从这里定义
@@ -119,9 +127,10 @@ jobs:
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dashboard-${{ steps.version.outputs.VERSION }}
 
   deploy:
-    name: Deploy via Self-Hosted Runner
+    name: Deploy to ${{ github.event.inputs.target_env || 'aliyun' }}
     needs: build-and-push
-    runs-on: self-hosted
+    # 神级代码：如果是网页端手动选的就用选的标签，如果是 push 代码自动触发的，默认用 aliyun
+    runs-on: [self-hosted, "${{ github.event.inputs.target_env || 'aliyun' }}"]
     env:
       VERSION: ${{ needs.build-and-push.outputs.VERSION }}
 
