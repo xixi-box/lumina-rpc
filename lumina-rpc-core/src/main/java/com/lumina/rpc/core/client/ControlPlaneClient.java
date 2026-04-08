@@ -286,7 +286,8 @@ public class ControlPlaneClient {
                     ServiceDiscovery.updateServiceInstances(entry.getKey(), entry.getValue());
                 }
 
-                logger.debug("🔍 Refreshed {} instances from control plane", instances.size());
+                logger.info("🔍 Refreshed {} instances from control plane, services: {}",
+                        instances.size(), grouped.keySet());
             }
 
         } catch (Exception e) {
