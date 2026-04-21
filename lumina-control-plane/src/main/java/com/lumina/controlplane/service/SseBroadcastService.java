@@ -1,6 +1,8 @@
 package com.lumina.controlplane.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lumina.controlplane.config.ControlPlaneProperties;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -23,10 +25,9 @@ import java.util.concurrent.TimeUnit;
 public class SseBroadcastService {
 
     private static final Logger logger = LoggerFactory.getLogger(SseBroadcastService.class);
-    private static final long SSE_TIMEOUT = 30 * 60 * 1000L; // 30分钟超时
-    private static final long HEARTBEAT_INTERVAL = 30; // 30秒心跳
 
     private final ObjectMapper objectMapper;
+    private final ControlPlaneProperties properties;
 
     // 存储所有活跃的 SseEmitter，按 serviceName 分组
     private final Map<String, Set<SseEmitter>> emittersByService = new ConcurrentHashMap<>();
@@ -41,8 +42,9 @@ public class SseBroadcastService {
         return t;
     });
 
-    public SseBroadcastService(ObjectMapper objectMapper) {
+    public SseBroadcastService(ObjectMapper objectMapper, ControlPlaneProperties properties) {
         this.objectMapper = objectMapper;
+        this.properties = properties;
         startHeartbeat();
     }
 
@@ -53,7 +55,7 @@ public class SseBroadcastService {
      * @return SseEmitter 实例
      */
     public SseEmitter createEmitter(String serviceName) {
-        SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);
+        SseEmitter emitter = new SseEmitter(properties.getSse().getTimeoutMs());
 
         // 存储映射关系
         emittersByService.computeIfAbsent(serviceName, k -> new CopyOnWriteArraySet<>()).add(emitter);
@@ -128,39 +130,6 @@ public class SseBroadcastService {
     }
 
     /**
-     * 广播给指定 emitter 组的订阅者（保留兼容）
-     */
-    private void broadcastToService(String emitterKey, String serviceName, Long ruleId, String action) {
-        Set<SseEmitter> emitters = emittersByService.get(emitterKey);
-        if (emitters == null || emitters.isEmpty()) {
-            return;
-        }
-
-        String eventData;
-        try {
-            eventData = objectMapper.writeValueAsString(new RuleChangeEvent(ruleId, action, serviceName));
-        } catch (Exception e) {
-            logger.error("Failed to serialize rule change event", e);
-            return;
-        }
-
-        logger.info("📡 Broadcasting rule change to {} emitters (key={}), service={}, action={}",
-                emitters.size(), emitterKey, serviceName, action);
-
-        for (SseEmitter emitter : emitters) {
-            try {
-                emitter.send(SseEmitter.event()
-                        .name("rule-change")
-                        .id(String.valueOf(ruleId))
-                        .data(eventData));
-            } catch (IOException e) {
-                logger.error("Failed to send SSE event to emitter", e);
-                removeEmitter(emitter);
-            }
-        }
-    }
-
-    /**
      * 广播到所有服务
      */
     public void broadcastToAll(Long ruleId, String action) {
@@ -173,15 +142,16 @@ public class SseBroadcastService {
      * 启动心跳任务
      */
     private void startHeartbeat() {
+        long interval = properties.getSse().getHeartbeatIntervalSeconds();
         heartbeatExecutor.scheduleAtFixedRate(() -> {
             try {
                 sendHeartbeat();
             } catch (Exception e) {
                 logger.error("Error during heartbeat", e);
             }
-        }, HEARTBEAT_INTERVAL, HEARTBEAT_INTERVAL, TimeUnit.SECONDS);
+        }, interval, interval, TimeUnit.SECONDS);
 
-        logger.info("SSE heartbeat started with interval: {} seconds", HEARTBEAT_INTERVAL);
+        logger.info("SSE heartbeat started with interval: {} seconds", interval);
     }
 
     /**
@@ -239,53 +209,9 @@ public class SseBroadcastService {
         logger.info("SSE broadcast service shutdown complete");
     }
 
-    /**
-     * 规则变更事件内部类
-     */
-    public static class RuleChangeEvent {
-        private Long ruleId;
-        private String action;
-        private String serviceName;
-        private Long timestamp;
-
-        public RuleChangeEvent(Long ruleId, String action, String serviceName) {
-            this.ruleId = ruleId;
-            this.action = action;
-            this.serviceName = serviceName;
-            this.timestamp = System.currentTimeMillis();
-        }
-
-        public Long getRuleId() {
-            return ruleId;
-        }
-
-        public void setRuleId(Long ruleId) {
-            this.ruleId = ruleId;
-        }
-
-        public String getAction() {
-            return action;
-        }
-
-        public void setAction(String action) {
-            this.action = action;
-        }
-
-        public String getServiceName() {
-            return serviceName;
-        }
-
-        public void setServiceName(String serviceName) {
-            this.serviceName = serviceName;
-        }
-
-        public Long getTimestamp() {
-            return timestamp;
-        }
-
-        public void setTimestamp(Long timestamp) {
-            this.timestamp = timestamp;
-        }
+    @PreDestroy
+    public void onDestroy() {
+        shutdown();
     }
 
     // ==================== 统一配置变更广播 ====================

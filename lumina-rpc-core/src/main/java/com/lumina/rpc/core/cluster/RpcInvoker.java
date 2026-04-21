@@ -94,6 +94,8 @@ public class RpcInvoker {
             channel.writeAndFlush(message).addListener(future -> {
                 if (!future.isSuccess()) {
                     logger.error("Failed to send RPC message to {}", address, future.cause());
+                    pendingManager.removePendingRequest(request.getRequestId());
+                    responseFuture.completeExceptionally(future.cause());
                 }
             });
 

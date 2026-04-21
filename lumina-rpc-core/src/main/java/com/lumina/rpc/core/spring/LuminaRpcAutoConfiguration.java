@@ -60,6 +60,18 @@ public class LuminaRpcAutoConfiguration {
     @Value("${lumina.rpc.discovery-refresh-interval:30}")
     private int discoveryRefreshInterval;
 
+    @Value("${lumina.rpc.heartbeat-interval-seconds:30}")
+    private int heartbeatIntervalSeconds;
+
+    @Value("${lumina.rpc.sse-reconnect-delay-seconds:10}")
+    private int sseReconnectDelaySeconds;
+
+    @Value("${lumina.rpc.connect-timeout-seconds:5}")
+    private int connectTimeoutSeconds;
+
+    @Value("${lumina.rpc.request-timeout-seconds:10}")
+    private int requestTimeoutSeconds;
+
     /**
      * RPC 服务端主机地址
      * 优先使用环境变量 LUMINA_RPC_SERVER_HOST（Docker 环境），
@@ -103,7 +115,11 @@ public class LuminaRpcAutoConfiguration {
         log.info("🚀 [Lumina-RPC] Initializing ControlPlaneClient, control plane: {}", controlPlaneUrl);
 
         // 初始化统一的控制平面客户端
-        ControlPlaneClient.initialize(controlPlaneUrl);
+        ControlPlaneClient.initialize(controlPlaneUrl,
+                heartbeatIntervalSeconds,
+                sseReconnectDelaySeconds,
+                connectTimeoutSeconds,
+                requestTimeoutSeconds);
 
         // 启动服务发现（Consumer端）
         ControlPlaneClient.getInstance().startDiscovery(discoveryRefreshInterval);

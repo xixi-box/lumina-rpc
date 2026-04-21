@@ -1,5 +1,5 @@
 <template>
-  <div id="app" class="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
+  <div id="app" class="min-h-screen">
     <Header />
 
     <main class="container mx-auto px-4 py-6">
@@ -14,6 +14,7 @@ import Header from './components/Header.vue'
 
 <style scoped>
 #app {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Inter', Helvetica, Arial, sans-serif;
+  font-feature-settings: "calt" 1;
 }
 </style>

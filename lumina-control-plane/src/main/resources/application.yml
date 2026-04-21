@@ -9,7 +9,7 @@ spring:
   datasource:
     url: ${MYSQL_URL:jdbc:mysql://localhost:3306/lumina?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&connectTimeout=30000&socketTimeout=60000&allowPublicKeyRetrieval=true}
     username: ${MYSQL_USER:lumina}
-    password: ${MYSQL_PASSWORD:lumina123}
+    password: ${MYSQL_PASSWORD:${DB_PASS:lumina123}}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       connection-timeout: 30000
@@ -28,17 +28,21 @@ spring:
 # MyBatis-Flex 配置
 mybatis-flex:
   configuration:
-    log-impl: ${MYBATIS_LOG:org.apache.ibatis.logging.stdout.StdOutImpl}
+    log-impl: ${MYBATIS_LOG:org.apache.ibatis.logging.slf4j.Slf4jImpl}
 
 # 日志配置
 logging:
   level:
-    com.lumina: ${LOG_LEVEL:DEBUG}
+    com.lumina: ${LOG_LEVEL:INFO}
     org.springframework.web: INFO
 
 # 自定义配置
 lumina:
   control-plane:
+    registry:
+      instance-ttl-seconds: ${REGISTRY_INSTANCE_TTL_SECONDS:90}
+      cleanup-fixed-rate-ms: ${REGISTRY_CLEANUP_FIXED_RATE_MS:60000}
+      zombie-retention-hours: ${REGISTRY_ZOMBIE_RETENTION_HOURS:1}
     sse:
-      timeout: 1800000
-      heartbeat-interval: 30
+      timeout-ms: ${SSE_TIMEOUT_MS:1800000}
+      heartbeat-interval-seconds: ${SSE_HEARTBEAT_INTERVAL_SECONDS:30}

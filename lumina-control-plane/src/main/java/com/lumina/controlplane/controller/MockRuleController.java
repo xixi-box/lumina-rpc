@@ -1,7 +1,9 @@
 package com.lumina.controlplane.controller;
 
+import com.lumina.controlplane.dto.MockRuleRequest;
 import com.lumina.controlplane.entity.MockRuleEntity;
 import com.lumina.controlplane.service.MockRuleService;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -73,9 +75,9 @@ public class MockRuleController {
      * 创建规则
      */
     @PostMapping
-    public ResponseEntity<MockRuleEntity> createRule(@RequestBody MockRuleEntity rule) {
-        logger.info("Creating new mock rule for service: {}", rule.getServiceName());
-        MockRuleEntity created = mockRuleService.createRule(rule);
+    public ResponseEntity<MockRuleEntity> createRule(@Valid @RequestBody MockRuleRequest request) {
+        logger.info("Creating new mock rule for service: {}", request.getServiceName());
+        MockRuleEntity created = mockRuleService.createRule(request.toEntity());
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
@@ -85,11 +87,9 @@ public class MockRuleController {
     @PutMapping("/{id}")
     public ResponseEntity<MockRuleEntity> updateRule(
             @PathVariable("id") Long id,
-            @RequestBody MockRuleEntity rule) {
+            @Valid @RequestBody MockRuleRequest request) {
         logger.info("Updating mock rule with id: {}", id);
-        // 明确将路径参数 id 赋值给接收到的 Entity，确保 JPA 正确识别为更新操作
-        rule.setId(id);
-        MockRuleEntity updated = mockRuleService.updateRule(id, rule);
+        MockRuleEntity updated = mockRuleService.updateRule(id, request.toEntity());
         return ResponseEntity.ok(updated);
     }
 
@@ -118,9 +118,10 @@ public class MockRuleController {
      */
     @PostMapping("/batch")
     public ResponseEntity<List<MockRuleEntity>> batchCreateRules(
-            @RequestBody List<MockRuleEntity> rules) {
-        logger.info("Batch creating {} mock rules", rules.size());
-        List<MockRuleEntity> created = rules.stream()
+            @Valid @RequestBody List<@Valid MockRuleRequest> requests) {
+        logger.info("Batch creating {} mock rules", requests.size());
+        List<MockRuleEntity> created = requests.stream()
+                .map(MockRuleRequest::toEntity)
                 .map(mockRuleService::createRule)
                 .toList();
         return ResponseEntity.status(HttpStatus.CREATED).body(created);

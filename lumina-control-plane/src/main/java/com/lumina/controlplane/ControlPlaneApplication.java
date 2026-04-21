@@ -18,7 +18,7 @@ import java.util.TimeZone;
  */
 @SpringBootApplication
 @EnableScheduling
-@ComponentScan(basePackages = "com.lumina.controlplane")
+
 @MapperScan("com.lumina.controlplane.mapper")
 public class ControlPlaneApplication {
 

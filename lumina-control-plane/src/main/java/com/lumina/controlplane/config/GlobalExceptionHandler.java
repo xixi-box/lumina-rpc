@@ -1,9 +1,12 @@
 package com.lumina.controlplane.config;
 
+import com.lumina.controlplane.exception.BadRequestException;
+import com.lumina.controlplane.exception.NotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingPathVariableException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -13,6 +16,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 全局异常处理器
@@ -48,6 +52,30 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException e) {
         logger.warn("Parameter type mismatch: {} should be type {}", e.getName(), e.getRequiredType(), e);
         return buildErrorResponse(HttpStatus.BAD_REQUEST, "参数类型错误: " + e.getName() + " 应该是 " + e.getRequiredType().getSimpleName() + " 类型");
+    }
+
+    /**
+     * 处理 DTO 校验异常
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, Object>> handleMethodArgumentNotValid(MethodArgumentNotValidException e) {
+        String message = e.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .collect(Collectors.joining("; "));
+        logger.warn("Request validation failed: {}", message);
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, message);
+    }
+
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<Map<String, Object>> handleBadRequest(BadRequestException e) {
+        logger.warn("Bad request: {}", e.getMessage());
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNotFound(NotFoundException e) {
+        logger.warn("Resource not found: {}", e.getMessage());
+        return buildErrorResponse(HttpStatus.NOT_FOUND, e.getMessage());
     }
 
     /**

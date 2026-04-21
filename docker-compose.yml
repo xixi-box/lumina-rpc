@@ -1,168 +1,37 @@
 # ============================================================
-# Lumina-RPC Docker Compose
-# 完整服务编排（5 个微服务 + MySQL）
-# 镜像模式：从 ACR 拉取预构建镜像
+# Lumina-RPC Local Development Infrastructure
+# 线上完整服务编排已放在部署流程中；本文件只保留本地开发依赖。
 # ============================================================
 
 services:
-  # -------------------------------------------------------
-  # MySQL 数据库
-  # -------------------------------------------------------
   mysql:
     image: mysql:8.0
     container_name: lumina-mysql
     hostname: lumina-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: lumina123
-      MYSQL_DATABASE: lumina
-      MYSQL_USER: lumina
-      MYSQL_PASSWORD: lumina123
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-lumina123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-lumina}
+      MYSQL_USER: ${MYSQL_USER:-lumina}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-lumina123}
+      # 兼容应用侧/PaaS 命名；MySQL 镜像真正用于初始化账号的是上面的 MYSQL_*。
+      DB_USER: ${DB_USER:-lumina}
+      DB_PASS: ${DB_PASS:-lumina123}
+      TZ: Asia/Shanghai
     ports:
-      - "3306:3306"
-    networks:
-      - lumina-net
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --default-authentication-plugin=mysql_native_password
-    deploy:
-      resources:
-        limits:
-          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
-  # -------------------------------------------------------
-  # Control Plane（控制面）
-  # -------------------------------------------------------
-  control-plane:
-    image: crpi-r1wme86kfaw7rr3f.cn-shanghai.personal.cr.aliyuncs.com/wangshun_build/wangshun_build:control-plane
-    container_name: lumina-control-plane
-    restart: unless-stopped
-    environment:
-      JAVA_OPTS: "-Xms128m -Xmx256m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError"
-      SPRING_PROFILES_ACTIVE: prod
-      MYSQL_URL: jdbc:mysql://lumina-mysql:3306/lumina?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-      MYSQL_USER: lumina
-      MYSQL_PASSWORD: lumina123
-      TZ: Asia/Shanghai
-    ports:
-      - "8080:8080"
-    networks:
-      - lumina-net
-    depends_on:
-      - mysql
-    deploy:
-      resources:
-        limits:
-          memory: 384M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "50m"
-        max-file: "3"
-
-  # -------------------------------------------------------
-  # Dashboard（前端监控面板）
-  # -------------------------------------------------------
-  dashboard:
-    image: crpi-r1wme86kfaw7rr3f.cn-shanghai.personal.cr.aliyuncs.com/wangshun_build/wangshun_build:dashboard
-    container_name: lumina-dashboard
-    restart: unless-stopped
-    ports:
-      - "3000:80"
-    depends_on:
-      - control-plane
-    networks:
-      - lumina-net
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-
-  # -------------------------------------------------------
-  # Warp Engine Service（曲率引擎服务）
-  # -------------------------------------------------------
-  sample-engine:
-    image: crpi-r1wme86kfaw7rr3f.cn-shanghai.personal.cr.aliyuncs.com/wangshun_build/wangshun_build:engine
-    container_name: lumina-sample-engine
-    restart: unless-stopped
-    environment:
-      JAVA_OPTS: "-Xms128m -Xmx256m -XX:+ExitOnOutOfMemoryError"
-      LUMINA_RPC_CONTROL_PLANE_URL: http://control-plane:8080
-      LUMINA_RPC_SERVER_HOST: sample-engine
-      TZ: Asia/Shanghai
-    ports:
-      - "8081:8081"
-      - "9081:9081"
-    networks:
-      - lumina-net
-    depends_on:
-      - control-plane
-    deploy:
-      resources:
-        limits:
-          memory: 384M
-
-  # -------------------------------------------------------
-  # Deep Space Radar Service（深空雷达服务）
-  # -------------------------------------------------------
-  sample-radar:
-    image: crpi-r1wme86kfaw7rr3f.cn-shanghai.personal.cr.aliyuncs.com/wangshun_build/wangshun_build:radar
-    container_name: lumina-sample-radar
-    restart: unless-stopped
-    environment:
-      JAVA_OPTS: "-Xms128m -Xmx256m -XX:+ExitOnOutOfMemoryError"
-      LUMINA_RPC_CONTROL_PLANE_URL: http://control-plane:8080
-      LUMINA_RPC_SERVER_HOST: sample-radar
-      TZ: Asia/Shanghai
-    ports:
-      - "8082:8082"
-      - "9082:9082"
-    networks:
-      - lumina-net
-    depends_on:
-      - control-plane
-    deploy:
-      resources:
-        limits:
-          memory: 384M
-
-  # -------------------------------------------------------
-  # Fleet Command Gateway（舰队指挥网关）
-  # -------------------------------------------------------
-  sample-command:
-    image: crpi-r1wme86kfaw7rr3f.cn-shanghai.personal.cr.aliyuncs.com/wangshun_build/wangshun_build:command
-    container_name: lumina-sample-command
-    restart: unless-stopped
-    environment:
-      JAVA_OPTS: "-Xms128m -Xmx256m -XX:+ExitOnOutOfMemoryError"
-      LUMINA_RPC_CONTROL_PLANE_URL: http://control-plane:8080
-      TZ: Asia/Shanghai
-    ports:
-      - "8083:8083"
-      - "9083:9083"
-    networks:
-      - lumina-net
-    depends_on:
-      - control-plane
-      - sample-engine
-      - sample-radar
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-
-# -------------------------------------------------------
-# 网络定义
-# -------------------------------------------------------
-networks:
-  lumina-net:
-    driver: bridge
-
-# -------------------------------------------------------
-# 数据卷定义
-# -------------------------------------------------------
 volumes:
   mysql-data:

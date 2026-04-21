@@ -1,7 +1,8 @@
 package com.lumina.controlplane.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lumina.controlplane.entity.MockRuleEntity;
+import com.lumina.controlplane.exception.BadRequestException;
+import com.lumina.controlplane.exception.NotFoundException;
 import com.lumina.controlplane.mapper.MockRuleMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,14 +23,11 @@ public class MockRuleService {
 
     private final MockRuleMapper mapper;
     private final SseBroadcastService sseBroadcastService;
-    private final ObjectMapper objectMapper;
 
     public MockRuleService(MockRuleMapper mapper,
-                           SseBroadcastService sseBroadcastService,
-                           ObjectMapper objectMapper) {
+                           SseBroadcastService sseBroadcastService) {
         this.mapper = mapper;
         this.sseBroadcastService = sseBroadcastService;
-        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -71,12 +69,12 @@ public class MockRuleService {
         logger.info("Updating mock rule with id: {}", id);
 
         if (id == null) {
-            throw new IllegalArgumentException("Rule id cannot be null");
+            throw new BadRequestException("Rule id cannot be null");
         }
 
         MockRuleEntity existingRule = mapper.selectOneById(id);
         if (existingRule == null) {
-            throw new RuntimeException("Rule not found with id: " + id);
+            throw new NotFoundException("Rule not found with id: " + id);
         }
 
         String oldServiceName = existingRule.getServiceName();
@@ -117,12 +115,12 @@ public class MockRuleService {
         logger.info("Deleting mock rule with id: {}", id);
 
         if (id == null) {
-            throw new IllegalArgumentException("Rule id cannot be null");
+            throw new BadRequestException("Rule id cannot be null");
         }
 
         MockRuleEntity rule = mapper.selectOneById(id);
         if (rule == null) {
-            throw new RuntimeException("Rule not found with id: " + id);
+            throw new NotFoundException("Rule not found with id: " + id);
         }
 
         String serviceName = rule.getServiceName();
@@ -155,12 +153,12 @@ public class MockRuleService {
         logger.info("Toggling rule enabled state for id: {}", id);
 
         if (id == null) {
-            throw new IllegalArgumentException("Rule id cannot be null");
+            throw new BadRequestException("Rule id cannot be null");
         }
 
         MockRuleEntity rule = mapper.selectOneById(id);
         if (rule == null) {
-            throw new RuntimeException("Rule not found with id: " + id);
+            throw new NotFoundException("Rule not found with id: " + id);
         }
 
         rule.setEnabled(!rule.getEnabled());

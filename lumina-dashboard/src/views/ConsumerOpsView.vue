@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-slate-900 p-6">
+  <div class="p-6">
     <!-- 页面标题 -->
     <div class="text-center mb-6">
       <h1 class="text-3xl font-bold text-white mb-2">
@@ -919,17 +919,18 @@ onUnmounted(() => {
 
 <style scoped>
 .text-gradient {
-  background: linear-gradient(135deg, #00ff88, #00ccff, #ff00aa);
+  background: linear-gradient(135deg, #0e0f0c 0%, #224a0a 48%, #163300 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .glass-panel {
-  background: rgba(30, 41, 59, 0.7);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(71, 85, 105, 0.4);
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(14, 15, 12, 0.12);
+  border-radius: 40px;
+  box-shadow: rgba(14, 15, 12, 0.12) 0 0 0 1px;
 }
 
 /* 滚动条样式 */
@@ -971,7 +972,7 @@ onUnmounted(() => {
 }
 
 .json-highlight .json-key {
-  color: #7dd3fc;
+  color: #9fe870;
 }
 
 .json-highlight .json-string {
@@ -987,6 +988,6 @@ onUnmounted(() => {
 }
 
 .json-highlight .json-null {
-  color: #a78bfa;
+  color: #ffc091;
 }
 </style>

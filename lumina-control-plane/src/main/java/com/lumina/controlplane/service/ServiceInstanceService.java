@@ -2,6 +2,7 @@ package com.lumina.controlplane.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lumina.controlplane.config.ControlPlaneProperties;
 import com.lumina.controlplane.entity.ServiceInstanceEntity;
 import com.lumina.controlplane.mapper.ServiceInstanceMapper;
 import org.slf4j.Logger;
@@ -20,10 +21,14 @@ public class ServiceInstanceService {
 
     private final ServiceInstanceMapper mapper;
     private final ObjectMapper objectMapper;
+    private final ControlPlaneProperties properties;
 
-    public ServiceInstanceService(ServiceInstanceMapper mapper, ObjectMapper objectMapper) {
+    public ServiceInstanceService(ServiceInstanceMapper mapper,
+                                  ObjectMapper objectMapper,
+                                  ControlPlaneProperties properties) {
         this.mapper = mapper;
         this.objectMapper = objectMapper;
+        this.properties = properties;
     }
 
     public List<ServiceInstanceEntity> findAll() {
@@ -118,7 +123,7 @@ public class ServiceInstanceService {
             existing.setMetadata(instance.getMetadata());
             existing.setServiceMetadata(instance.getServiceMetadata());
             existing.setLastHeartbeat(LocalDateTime.now());
-            existing.setExpiresAt(LocalDateTime.now().plusSeconds(90));
+            existing.setExpiresAt(expiresAtFromNow());
 
             if (existing.getStartTime() == null && instance.getStartTime() != null) {
                 existing.setStartTime(instance.getStartTime());
@@ -135,7 +140,7 @@ public class ServiceInstanceService {
             instance.setStatus("UP");
             instance.setRegisteredAt(LocalDateTime.now());
             instance.setLastHeartbeat(LocalDateTime.now());
-            instance.setExpiresAt(LocalDateTime.now().plusSeconds(90));
+            instance.setExpiresAt(expiresAtFromNow());
 
             if (instance.getStartTime() == null) {
                 instance.setStartTime(System.currentTimeMillis());
@@ -153,7 +158,7 @@ public class ServiceInstanceService {
         if (instance != null) {
             instance.setLastHeartbeat(LocalDateTime.now());
             instance.setStatus("UP");
-            instance.setExpiresAt(LocalDateTime.now().plusSeconds(90));
+            instance.setExpiresAt(expiresAtFromNow());
             mapper.update(instance);
             logger.debug("Heartbeat received for instance: {}", instanceId);
         } else {
@@ -184,7 +189,7 @@ public class ServiceInstanceService {
         }
 
         // 2. 物理删除：DOWN 状态超过 1 小时的僵尸实例
-        LocalDateTime oneHourAgo = now.minusHours(1);
+        LocalDateTime oneHourAgo = now.minusHours(properties.getRegistry().getZombieRetentionHours());
         List<ServiceInstanceEntity> zombieInstances = mapper.findByStatus("DOWN");
         for (ServiceInstanceEntity instance : zombieInstances) {
             if (instance.getLastHeartbeat() != null && instance.getLastHeartbeat().isBefore(oneHourAgo)) {
@@ -194,8 +199,12 @@ public class ServiceInstanceService {
         }
     }
 
-    @Scheduled(fixedRate = 60000)
+    @Scheduled(fixedRateString = "${lumina.control-plane.registry.cleanup-fixed-rate-ms:60000}")
     public void scheduledCleanup() {
         cleanupExpiredInstances();
+    }
+
+    private LocalDateTime expiresAtFromNow() {
+        return LocalDateTime.now().plusSeconds(properties.getRegistry().getInstanceTtlSeconds());
     }
 }

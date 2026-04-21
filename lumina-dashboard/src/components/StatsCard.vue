@@ -51,7 +51,7 @@ const bgClass = computed(() => {
     blue: 'bg-blue-500/20',
     emerald: 'bg-emerald-500/20',
     purple: 'bg-purple-500/20',
-    orange: 'bg-orange-500/20',
+    orange: 'bg-amber-500/20',
   }
   return colors[props.color]
 })
@@ -62,7 +62,7 @@ const iconClass = computed(() => {
     blue: 'text-blue-400',
     emerald: 'text-emerald-400',
     purple: 'text-purple-400',
-    orange: 'text-orange-400',
+    orange: 'text-amber-400',
   }
   return colors[props.color]
 })
@@ -76,10 +76,10 @@ const trendClass = computed(() => {
 
 <style scoped>
 .glass-panel {
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(71, 85, 105, 0.5);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(14, 15, 12, 0.12);
+  backdrop-filter: blur(14px);
+  border-radius: 30px;
+  box-shadow: rgba(14, 15, 12, 0.12) 0 0 0 1px;
 }
 </style>

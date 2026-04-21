@@ -17,7 +17,7 @@ on:
 env:
   # 单点真实来源 (Single Source of Truth) - 所有镜像和配置统一从这里定义
   REGISTRY: crpi-r1wme86kfaw7rr3f.cn-shanghai.personal.cr.aliyuncs.com
-  IMAGE_NAME: wangshun_build/wangshun_build
+  IMAGE_NAME: wangshun_build/lumina-rpc
   ALIYUN_USERNAME: aliyun4384550071
   ALIYUN_PASSWORD: wangshun817
 
@@ -349,7 +349,7 @@ jobs:
           sleep 20
 
           for i in {1..30}; do
-            if docker exec lumina-mysql mysql -ulumina -plumina123 -e "SELECT 1" 2>/dev/null; then
+            if docker exec lumina-mysql mysql -u${{ env.MYSQL_USER }} -p${{ env.MYSQL_PASSWORD }} -e "SELECT 1" 2>/dev/null; then
               echo "MySQL is ready!"
               break
             fi

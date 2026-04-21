@@ -1,5 +1,5 @@
 <template>
-  <div class="glass-panel p-6 card-hover">
+  <div ref="topologyPanelRef" class="glass-panel p-6 card-hover">
     <div class="flex items-center justify-between mb-4">
       <div>
         <h3 class="text-lg font-semibold text-white">服务拓扑</h3>
@@ -29,7 +29,11 @@
     </div>
 
     <!-- 加载状态 -->
-    <div v-if="loading" class="h-[500px] bg-slate-950/50 rounded-lg border border-slate-800 flex items-center justify-center">
+    <div
+      v-if="loading"
+      class="bg-slate-950/50 rounded-[30px] border border-slate-800 flex items-center justify-center"
+      :class="canvasHeightClass"
+    >
       <div class="text-center">
         <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
         <p class="text-slate-400 mt-2">加载拓扑数据...</p>
@@ -37,7 +41,11 @@
     </div>
 
     <!-- 错误状态 -->
-    <div v-else-if="error" class="h-[500px] bg-slate-950/50 rounded-lg border border-slate-800 flex items-center justify-center">
+    <div
+      v-else-if="error"
+      class="bg-slate-950/50 rounded-[30px] border border-slate-800 flex items-center justify-center"
+      :class="canvasHeightClass"
+    >
       <div class="text-center">
         <svg class="w-12 h-12 text-red-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -50,7 +58,11 @@
     </div>
 
     <!-- 拓扑图 -->
-    <div v-else class="h-[500px] bg-slate-950/50 rounded-lg border border-slate-800 overflow-hidden">
+    <div
+      v-else
+      class="bg-slate-950/50 rounded-[30px] border border-slate-800 overflow-hidden"
+      :class="canvasHeightClass"
+    >
       <VueFlow
         v-model:nodes="nodes"
         v-model:edges="edges"
@@ -69,7 +81,7 @@
     </div>
 
     <!-- 图例 -->
-    <div v-if="!loading && !error" class="flex items-center justify-center space-x-6 text-sm text-slate-400 flex-wrap">
+    <div v-if="!loading && !error" class="mt-4 flex items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-400 flex-wrap">
       <div class="flex items-center space-x-2">
         <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
         <span>Control Plane</span>
@@ -108,7 +120,13 @@ import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
 
+const props = defineProps<{
+  compact?: boolean
+}>()
+
 const router = useRouter()
+const topologyPanelRef = ref<HTMLElement | null>(null)
+const canvasHeightClass = props.compact ? 'h-[360px]' : 'h-[500px]'
 
 interface ServiceInstance {
   id: number
@@ -146,9 +164,9 @@ const buildTopology = (data: ServiceInstance[]) => {
     label: 'Control Plane\u003cbr\u003e<span class="text-xs text-slate-400">服务注册/发现</span>',
     position: { x: 400, y: 180 },
     style: {
-      background: '#059669',
-      border: '2px solid #10b981',
-      color: '#ffffff',
+        background: '#9fe870',
+        border: '2px solid #163300',
+        color: '#163300',
       fontSize: '14px',
       fontWeight: 'bold',
       width: 150,
@@ -166,8 +184,8 @@ const buildTopology = (data: ServiceInstance[]) => {
       label: 'Command\u003cbr\u003e<span class="text-xs text-slate-400">Consumer</span>',
       position: { x: 400, y: 380 },
       style: {
-        background: '#8b5cf6',
-        border: '2px solid #a78bfa',
+        background: '#0e0f0c',
+        border: '2px solid #454745',
         color: '#ffffff',
         fontSize: '14px',
         width: 120,
@@ -180,7 +198,7 @@ const buildTopology = (data: ServiceInstance[]) => {
       target: 'control-plane',
       type: 'smoothstep',
       style: {
-        stroke: '#8b5cf6',
+        stroke: '#454745',
         strokeWidth: 2,
         strokeDasharray: '5 5',
       },
@@ -230,9 +248,9 @@ const buildTopology = (data: ServiceInstance[]) => {
       label: `${displayName}\u003cbr\u003e<span class="text-xs text-slate-400">${healthyInstances.length}/${serviceInstances.length} 健康</span>`,
       position: { x, y },
       style: {
-        background: isHealthy ? '#3b82f6' : '#ef4444',
-        border: `2px solid ${isHealthy ? '#60a5fa' : '#f87171'}`,
-        color: '#ffffff',
+        background: isHealthy ? '#e2f6d5' : '#ffe3e0',
+        border: `2px solid ${isHealthy ? '#054d28' : '#d03238'}`,
+        color: isHealthy ? '#054d28' : '#d03238',
         fontSize: '14px',
         width: 120,
       },
@@ -247,7 +265,7 @@ const buildTopology = (data: ServiceInstance[]) => {
       target: `provider-${serviceName}`,
       animated: isHealthy,
       style: {
-        stroke: isHealthy ? '#10b981' : '#ef4444',
+        stroke: isHealthy ? '#054d28' : '#d03238',
         strokeWidth: 2,
       },
     })
@@ -260,8 +278,8 @@ const buildTopology = (data: ServiceInstance[]) => {
     label: 'Command\u003cbr\u003e<span class="text-xs text-slate-400">Consumer</span>',
     position: { x: 400, y: 380 },
     style: {
-      background: '#8b5cf6',
-      border: '2px solid #a78bfa',
+    background: '#0e0f0c',
+    border: '2px solid #454745',
       color: '#ffffff',
       fontSize: '14px',
       width: 120,
@@ -277,7 +295,7 @@ const buildTopology = (data: ServiceInstance[]) => {
     target: 'control-plane',
     type: 'smoothstep',
     style: {
-      stroke: '#8b5cf6',
+      stroke: '#454745',
       strokeWidth: 2,
       strokeDasharray: '5 5',
     },
@@ -293,12 +311,12 @@ const buildTopology = (data: ServiceInstance[]) => {
       animated: true,
       type: 'smoothstep',
       style: {
-        stroke: '#f59e0b',
+        stroke: '#163300',
         strokeWidth: 2,
       },
       label: 'RPC',
-      labelStyle: { fill: '#f59e0b', fontSize: 10 },
-      labelBgStyle: { fill: '#1e293b', fillOpacity: 0.8 },
+      labelStyle: { fill: '#163300', fontSize: 10, fontWeight: 700 },
+      labelBgStyle: { fill: '#e2f6d5', fillOpacity: 0.92 },
     })
   })
 
@@ -328,7 +346,7 @@ const fetchInstances = async () => {
 
 // 全屏切换
 const toggleFullscreen = () => {
-  const elem = document.querySelector('.glass-panel')
+  const elem = topologyPanelRef.value
   if (!elem) return
 
   if (!document.fullscreenElement) {
@@ -344,7 +362,7 @@ const onEdgeClick = (event: any) => {
   if (!edge) return
 
   // 只处理 RPC 调用连线（橙色）
-  if (edge.style?.stroke === '#f59e0b') {
+  if (edge.style?.stroke === '#163300') {
     // 从边 ID 中提取服务名: edge-rpc-serviceName
     const edgeId = edge.id as string
     if (edgeId.startsWith('edge-rpc-')) {
@@ -369,23 +387,27 @@ onMounted(() => {
 
 <style scoped>
 .VueFlow {
-  background-color: #020617;
+  background:
+    radial-gradient(circle at 20% 18%, rgba(159, 232, 112, 0.28), transparent 18rem),
+    #f6f7f2;
 }
 
 .vf-node {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  border-radius: 9999px !important;
 }
 
 .vf-node.selected {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid #9fe870;
   outline-offset: 2px;
 }
 
 .vf-handle {
-  background-color: #06b6d4;
+  background-color: #163300;
 }
 
 .vf-handle:hover {
-  background-color: #0891b2;
+  background-color: #9fe870;
 }
 </style>

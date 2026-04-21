@@ -67,14 +67,15 @@ public class ControlPlaneClient {
     // ==================== 配置缓存 ====================
     private final ConcurrentHashMap<String, ProtectionConfig> protectionConfigCache = new ConcurrentHashMap<>();
 
-    // ==================== 心跳间隔 ====================
-    private static final int HEARTBEAT_INTERVAL_SECONDS = 30;
-    private static final int DISCOVERY_INTERVAL_SECONDS = 30;
-    private static final int SSE_RECONNECT_DELAY_SECONDS = 10;
+    // ==================== 默认间隔/超时配置 ====================
+    private static final int DEFAULT_HEARTBEAT_INTERVAL_SECONDS = 30;
+    private static final int DEFAULT_SSE_RECONNECT_DELAY_SECONDS = 10;
+    private static final int DEFAULT_CONNECT_TIMEOUT_SECONDS = 5;
+    private static final int DEFAULT_REQUEST_TIMEOUT_SECONDS = 10;
 
-    // ==================== 超时配置 ====================
-    private static final int CONNECT_TIMEOUT_SECONDS = 5;
-    private static final int REQUEST_TIMEOUT_SECONDS = 10;
+    private final int heartbeatIntervalSeconds;
+    private final int sseReconnectDelaySeconds;
+    private final int requestTimeoutSeconds;
 
     /**
      * 获取单例
@@ -94,8 +95,27 @@ public class ControlPlaneClient {
      * 初始化（Provider端调用）
      */
     public static synchronized void initialize(String controlPlaneUrl) {
+        initialize(controlPlaneUrl,
+                DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
+                DEFAULT_SSE_RECONNECT_DELAY_SECONDS,
+                DEFAULT_CONNECT_TIMEOUT_SECONDS,
+                DEFAULT_REQUEST_TIMEOUT_SECONDS);
+    }
+
+    /**
+     * 初始化（支持通过配置覆盖 SDK 内部间隔/超时）
+     */
+    public static synchronized void initialize(String controlPlaneUrl,
+                                               int heartbeatIntervalSeconds,
+                                               int sseReconnectDelaySeconds,
+                                               int connectTimeoutSeconds,
+                                               int requestTimeoutSeconds) {
         if (instance == null) {
-            instance = new ControlPlaneClient(controlPlaneUrl);
+            instance = new ControlPlaneClient(controlPlaneUrl,
+                    heartbeatIntervalSeconds,
+                    sseReconnectDelaySeconds,
+                    connectTimeoutSeconds,
+                    requestTimeoutSeconds);
             logger.info("✅ ControlPlaneClient initialized: {}", controlPlaneUrl);
         }
     }
@@ -103,10 +123,17 @@ public class ControlPlaneClient {
     /**
      * 构造函数
      */
-    private ControlPlaneClient(String controlPlaneUrl) {
+    private ControlPlaneClient(String controlPlaneUrl,
+                               int heartbeatIntervalSeconds,
+                               int sseReconnectDelaySeconds,
+                               int connectTimeoutSeconds,
+                               int requestTimeoutSeconds) {
         this.controlPlaneUrl = controlPlaneUrl;
+        this.heartbeatIntervalSeconds = positiveOrDefault(heartbeatIntervalSeconds, DEFAULT_HEARTBEAT_INTERVAL_SECONDS);
+        this.sseReconnectDelaySeconds = positiveOrDefault(sseReconnectDelaySeconds, DEFAULT_SSE_RECONNECT_DELAY_SECONDS);
+        this.requestTimeoutSeconds = positiveOrDefault(requestTimeoutSeconds, DEFAULT_REQUEST_TIMEOUT_SECONDS);
         this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_SECONDS))
+                .connectTimeout(Duration.ofSeconds(positiveOrDefault(connectTimeoutSeconds, DEFAULT_CONNECT_TIMEOUT_SECONDS)))
                 .build();
         this.objectMapper = new ObjectMapper();
 
@@ -116,6 +143,10 @@ public class ControlPlaneClient {
             t.setDaemon(true);
             return t;
         });
+    }
+
+    private int positiveOrDefault(int value, int defaultValue) {
+        return value > 0 ? value : defaultValue;
     }
 
     // ==================== Provider端：服务注册 ====================
@@ -158,7 +189,7 @@ public class ControlPlaneClient {
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS))
+                    .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(json))
                     .build();
@@ -187,8 +218,8 @@ public class ControlPlaneClient {
                 return;
             }
             sendHeartbeat();
-        }, HEARTBEAT_INTERVAL_SECONDS, HEARTBEAT_INTERVAL_SECONDS, TimeUnit.SECONDS);
-        logger.info("💓 Heartbeat started (interval: {}s)", HEARTBEAT_INTERVAL_SECONDS);
+        }, heartbeatIntervalSeconds, heartbeatIntervalSeconds, TimeUnit.SECONDS);
+        logger.info("💓 Heartbeat started (interval: {}s)", heartbeatIntervalSeconds);
     }
 
     /**
@@ -199,7 +230,7 @@ public class ControlPlaneClient {
             String url = controlPlaneUrl + "/api/v1/registry/heartbeat/" + instanceId;
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS))
+                    .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                     .POST(HttpRequest.BodyPublishers.noBody())
                     .build();
 
@@ -227,7 +258,7 @@ public class ControlPlaneClient {
             String url = controlPlaneUrl + "/api/v1/registry/deregister/" + instanceId;
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS))
+                    .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                     .POST(HttpRequest.BodyPublishers.noBody())
                     .build();
 
@@ -267,7 +298,7 @@ public class ControlPlaneClient {
             String url = controlPlaneUrl + "/api/v1/registry/instances";
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS))
+                    .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                     .GET()
                     .build();
 
@@ -363,10 +394,10 @@ public class ControlPlaneClient {
                 }
 
                 sseConnected = false;
-                logger.warn("🔄 SSE disconnected, reconnecting in {}s...", SSE_RECONNECT_DELAY_SECONDS);
+                logger.warn("🔄 SSE disconnected, reconnecting in {}s...", sseReconnectDelaySeconds);
 
                 try {
-                    Thread.sleep(SSE_RECONNECT_DELAY_SECONDS * 1000);
+                    Thread.sleep(sseReconnectDelaySeconds * 1000L);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
@@ -472,7 +503,7 @@ public class ControlPlaneClient {
             String url = controlPlaneUrl + "/api/v1/protection/configs";
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS))
+                    .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                     .GET()
                     .build();
 
@@ -503,7 +534,7 @@ public class ControlPlaneClient {
             String url = controlPlaneUrl + "/api/v1/protection/configs/" + serviceName;
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS))
+                    .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                     .GET()
                     .build();
 
@@ -569,7 +600,7 @@ public class ControlPlaneClient {
             String url = controlPlaneUrl + "/api/v1/rules/service/" + serviceName;
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS))
+                    .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                     .GET()
                     .build();
 

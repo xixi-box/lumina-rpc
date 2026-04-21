@@ -202,12 +202,8 @@ cd lumina-rpc
 # 2. 构建项目
 mvn clean package -DskipTests
 
-# 3. 启动 MySQL
-docker run -d --name mysql \
-  -e MYSQL_ROOT_PASSWORD=lumina123 \
-  -e MYSQL_DATABASE=lumina \
-  -p 3306:3306 \
-  mysql:8.0
+# 3. 启动本地基础设施 MySQL
+docker compose up -d
 
 # 4. 启动控制面
 java -jar lumina-control-plane/target/lumina-control-plane-exec.jar
@@ -224,12 +220,14 @@ cd lumina-dashboard
 pnpm install && pnpm dev
 ```
 
-### Docker 部署
+### 本地基础设施
 
 ```bash
-docker-compose up -d
-docker-compose ps
+docker compose up -d
+docker compose ps
 ```
+
+当前仓库根目录的 `docker-compose.yml` 只用于本地开发依赖，不包含控制面、前端和示例服务。线上完整编排由部署流程中的部署文件维护。
 
 ### 访问地址
 
@@ -250,7 +248,7 @@ push to master 自动触发部署：
 1. **Checkout** → 检出代码
 2. **Build** → Maven 构建后端，pnpm 构建前端
 3. **Docker Build** → 构建并推送 5 个镜像到阿里云 ACR
-4. **Deploy** → SSH 远程执行 docker-compose 部署
+4. **Deploy** → SSH 远程执行部署文件中的线上编排
 
 部署目标：阿里云 ECS (120.26.186.0)，执行时间约 5-8 分钟。
 

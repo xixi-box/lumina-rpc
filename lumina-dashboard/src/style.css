@@ -3,52 +3,104 @@
 @tailwind utilities;
 
 :root {
-  --slate-950: #020617;
-  --slate-900: #0f172a;
-  --slate-800: #1e293b;
-  --slate-700: #334155;
-  --slate-600: #475569;
-  --slate-500: #64748b;
-  --slate-400: #94a3b8;
-  --slate-300: #cbd5e1;
-  --slate-200: #e2e8f0;
-  --slate-100: #f1f5f9;
-  --blue-500: #3b82f6;
-  --blue-600: #2563eb;
-  --blue-700: #1d4ed8;
-  --cyan-500: #06b6d4;
-  --cyan-600: #0891b2;
-  --emerald-500: #10b981;
-  --emerald-600: #059669;
-  --purple-500: #a855f7;
-  --purple-600: #9333ea;
-  --orange-500: #f97316;
+  --wise-black: #0e0f0c;
+  --wise-green: #9fe870;
+  --wise-green-hover: #cdffad;
+  --wise-dark-green: #163300;
+  --wise-mint: #e2f6d5;
+  --wise-surface: #f6f7f2;
+  --wise-surface-strong: #e8ebe6;
+  --wise-border: rgba(14, 15, 12, 0.12);
+  --wise-muted: #454745;
+  --wise-tertiary: #868685;
+  --wise-positive: #054d28;
+  --wise-danger: #d03238;
+  --wise-warning: #ffd11a;
+  --wise-info: rgba(56, 200, 255, 0.1);
+  --wise-orange: #ffc091;
 }
 
 body {
   margin: 0;
   padding: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  color: var(--slate-300);
+  font-family: 'Inter', Helvetica, Arial, sans-serif;
+  font-feature-settings: "calt" 1;
+  background:
+    radial-gradient(circle at 16% 8%, rgba(159, 232, 112, 0.34), transparent 20rem),
+    radial-gradient(circle at 88% 0%, rgba(255, 192, 145, 0.22), transparent 24rem),
+    linear-gradient(180deg, #ffffff 0%, #f7f8f3 52%, #eef3e9 100%);
+  color: var(--wise-black);
   min-height: 100vh;
+  font-weight: 600;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(14, 15, 12, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(14, 15, 12, 0.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.62), transparent 78%);
+}
+
+#app {
+  position: relative;
+  z-index: 1;
+}
+
+.text-3xl.font-bold,
+h1.text-3xl,
+h2.text-3xl {
+  font-family: 'Wise Sans', Inter, Helvetica, Arial, sans-serif;
+  font-size: clamp(3rem, 6vw, 4rem) !important;
+  font-weight: 900 !important;
+  line-height: 0.85 !important;
+  letter-spacing: -0.04em;
+  font-feature-settings: "calt" 1;
+}
+
+.text-lg.font-semibold {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
 }
 
 @layer components {
   .glass-panel {
-    @apply bg-slate-900/80 backdrop-blur-md border border-slate-700 rounded-xl shadow-lg;
+    background: rgba(255, 255, 255, 0.86);
+    border: 1px solid var(--wise-border);
+    box-shadow: rgba(14, 15, 12, 0.12) 0 0 0 1px;
+    backdrop-filter: blur(14px);
+    border-radius: 40px;
   }
 
   .card-hover {
-    @apply transition-all duration-200 hover:shadow-xl hover:border-blue-500/50;
+    @apply transition-all duration-200;
+    transform: translateZ(0);
+  }
+
+  .card-hover:hover {
+    border-color: rgba(14, 15, 12, 0.2);
+    box-shadow: rgba(14, 15, 12, 0.18) 0 0 0 1px;
+    transform: translateY(-2px);
   }
 
   .text-gradient {
-    @apply bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent;
+    background: linear-gradient(135deg, var(--wise-black) 0%, #224a0a 48%, var(--wise-dark-green) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 
   .btn-primary {
-    @apply bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition-all duration-200;
+    @apply font-medium py-2 px-4 shadow-md transition-all duration-200;
+    background: var(--wise-green);
+    color: var(--wise-dark-green);
+    border-radius: 9999px;
   }
 
   .btn-success {
@@ -60,6 +112,282 @@ body {
   }
 }
 
+/* Wise-like theme remap for existing Tailwind-heavy views. */
+.text-white,
+.text-slate-100,
+.text-slate-200,
+.text-slate-300 {
+  color: var(--wise-black) !important;
+}
+
+.text-slate-400,
+.text-slate-500,
+.text-slate-600 {
+  color: var(--wise-muted) !important;
+}
+
+.text-cyan-400,
+.text-blue-400,
+.text-blue-500,
+.text-purple-400,
+.text-yellow-400,
+.text-amber-400 {
+  color: var(--wise-dark-green) !important;
+}
+
+.text-cyan-500,
+.text-cyan-600,
+.text-purple-500,
+.text-purple-600 {
+  color: var(--wise-positive) !important;
+}
+
+.text-green-300,
+.text-green-400,
+.text-emerald-400,
+.text-emerald-500 {
+  color: var(--wise-positive) !important;
+}
+
+.text-red-300,
+.text-red-400,
+.text-red-500 {
+  color: var(--wise-danger) !important;
+}
+
+.bg-cyan-500,
+.bg-blue-500,
+.bg-purple-500,
+.bg-amber-500,
+.bg-green-500,
+.bg-emerald-500 {
+  background-color: var(--wise-green) !important;
+}
+
+.bg-cyan-600,
+.bg-blue-600,
+.bg-purple-600,
+.bg-amber-600,
+.hover\:bg-cyan-500:hover,
+.hover\:bg-blue-500:hover,
+.hover\:bg-purple-500:hover,
+.hover\:bg-amber-500:hover {
+  background-color: var(--wise-green-hover) !important;
+  color: var(--wise-dark-green) !important;
+}
+
+.bg-cyan-500\/20,
+.bg-blue-500\/20,
+.bg-purple-500\/20,
+.bg-amber-500\/20,
+.bg-emerald-500\/20 {
+  background-color: rgba(159, 232, 112, 0.28) !important;
+}
+
+.bg-cyan-900\/20,
+.bg-blue-900\/20,
+.bg-purple-900\/20,
+.bg-amber-900\/20,
+.bg-green-900\/20,
+.bg-cyan-900\/50,
+.bg-blue-900\/50,
+.bg-purple-900\/50,
+.bg-amber-900\/50,
+.bg-green-900\/50 {
+  background-color: rgba(226, 246, 213, 0.78) !important;
+}
+
+.bg-slate-950,
+.bg-slate-900,
+.bg-slate-900\/90,
+.bg-slate-900\/80,
+.bg-slate-800,
+.bg-slate-800\/50,
+.bg-slate-800\/30,
+.bg-slate-700,
+.bg-slate-700\/50 {
+  background-color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.bg-slate-600 {
+  background-color: var(--wise-surface-strong) !important;
+}
+
+.hover\:bg-slate-800:hover,
+.hover\:bg-slate-700:hover,
+.hover\:bg-slate-600:hover {
+  background-color: rgba(226, 246, 213, 0.72) !important;
+}
+
+.border-cyan-500,
+.border-blue-500,
+.border-purple-500,
+.border-cyan-500\/30,
+.border-blue-500\/30,
+.border-purple-500\/30 {
+  border-color: rgba(14, 15, 12, 0.12) !important;
+}
+
+.border-slate-700,
+.border-slate-800,
+.border-slate-600,
+.border-amber-800\/50,
+.border-blue-800\/50,
+.border-purple-800\/50,
+.border-green-800\/50 {
+  border-color: var(--wise-border) !important;
+}
+
+.hover\:border-cyan-500:hover,
+.hover\:border-blue-500:hover,
+.hover\:border-purple-500:hover,
+.hover\:border-slate-600:hover {
+  border-color: rgba(14, 15, 12, 0.22) !important;
+}
+
+.from-cyan-400,
+.from-cyan-500,
+.from-cyan-600,
+.from-blue-500,
+.from-blue-600,
+.from-purple-500,
+.from-purple-600 {
+  --tw-gradient-from: #9fe870 var(--tw-gradient-from-position);
+  --tw-gradient-to: rgb(159 232 112 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+
+.to-blue-600,
+.to-blue-500,
+.to-cyan-500,
+.to-cyan-600,
+.to-purple-500,
+.to-purple-600 {
+  --tw-gradient-to: #cdffad var(--tw-gradient-to-position);
+}
+
+.via-purple-900\/20,
+.via-blue-900\/20,
+.via-cyan-900\/20 {
+  --tw-gradient-to: rgb(226 246 213 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), rgba(226, 246, 213, 0.45) var(--tw-gradient-via-position), var(--tw-gradient-to);
+}
+
+button,
+.el-button,
+.el-switch,
+a,
+[role="button"] {
+  transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+button:hover,
+.el-button:hover,
+a.rounded-lg:hover,
+[role="button"]:hover {
+  transform: scale(1.05);
+}
+
+button:active,
+.el-button:active,
+a.rounded-lg:active,
+[role="button"]:active {
+  transform: scale(0.95);
+}
+
+button,
+.el-button {
+  border-radius: 9999px !important;
+  font-weight: 600 !important;
+}
+
+.el-button--primary,
+.el-button--primary:hover,
+.el-button--primary:focus {
+  background: var(--wise-green) !important;
+  border-color: var(--wise-green) !important;
+  color: var(--wise-dark-green) !important;
+}
+
+.el-dialog,
+.el-drawer {
+  border-radius: 30px !important;
+}
+
+.el-dialog,
+.el-drawer__body,
+.el-drawer__header {
+  background: #ffffff !important;
+  color: var(--wise-black) !important;
+}
+
+.el-dialog__title,
+.el-drawer__title,
+.el-form-item__label,
+.el-radio,
+.el-radio__label {
+  color: var(--wise-black) !important;
+  font-weight: 600 !important;
+}
+
+.el-input__wrapper,
+.el-textarea__inner,
+.el-select__wrapper {
+  background: #ffffff !important;
+  border-radius: 10px !important;
+  box-shadow: rgb(134, 134, 133) 0 0 0 1px inset !important;
+}
+
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused {
+  box-shadow: var(--wise-dark-green) 0 0 0 2px inset !important;
+}
+
+.el-select-dropdown,
+.el-popper.is-light {
+  border: 1px solid var(--wise-border) !important;
+  border-radius: 16px !important;
+}
+
+.el-select-dropdown__item.is-selected {
+  color: var(--wise-dark-green) !important;
+  background: var(--wise-mint) !important;
+}
+
+.el-switch.is-checked .el-switch__core {
+  background-color: var(--wise-green) !important;
+  border-color: var(--wise-green) !important;
+}
+
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+thead tr {
+  color: var(--wise-muted) !important;
+}
+
+tbody tr {
+  transition: background-color 160ms ease;
+}
+
+tbody tr:hover {
+  background: rgba(226, 246, 213, 0.48) !important;
+}
+
+.bg-black {
+  background-color: #0e0f0c !important;
+}
+
+.bg-black,
+.bg-black .text-white,
+.bg-black .text-slate-300,
+.bg-black .text-slate-400,
+.bg-black .text-slate-500 {
+  color: #f6f7f2 !important;
+}
+
 /* Element Plus 下拉框白底白字修复 */
 .el-select-dropdown__item {
   color: #333333 !important;
@@ -67,11 +395,6 @@ body {
 
 .el-select-dropdown__item.is-hovering {
   background-color: #f5f7fa !important;
-}
-
-.el-select-dropdown__item.is-selected {
-  color: #409eff !important;
-  font-weight: 500;
 }
 
 /* 暴力修复所有 Element Plus 下拉框样式 */
@@ -93,14 +416,15 @@ body {
 
 /* 下拉选项选中状态 */
 .el-select-dropdown__item.selected {
-    color: #3b82f6 !important;
+    color: var(--wise-dark-green) !important;
     font-weight: bold !important;
+    background-color: var(--wise-mint) !important;
 }
 
 /* 下拉面板背景 */
 .el-select-dropdown {
     background-color: #ffffff !important;
-    border: 1px solid #e5e7eb !important;
+    border: 1px solid var(--wise-border) !important;
 }
 
 /* 下拉面板项 */
@@ -111,7 +435,7 @@ body {
 /* 输入框内部 */
 .el-input__wrapper {
     background-color: #ffffff !important;
-    box-shadow: 0 0 0 1px #d1d5db inset !important;
+    box-shadow: rgb(134, 134, 133) 0 0 0 1px inset !important;
 }
 
 /* 强制所有文本为深色 */
