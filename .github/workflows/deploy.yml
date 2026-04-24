@@ -325,6 +325,7 @@ jobs:
           # -------------------------------------------------------
           volumes:
             mysql-data:
+              name: lumina-prod-mysql-data
           EOF
 
           echo "=== Step 1: 备份当前运行状态 ==="
