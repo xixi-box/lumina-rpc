@@ -58,6 +58,7 @@ public class ControlPlaneClient {
     private String version;
     private String instanceId;
     private String serviceMetadata;
+    private volatile boolean heartbeatStarted = false;
 
     // ==================== SSE状态 ====================
     private volatile boolean sseConnected = false;
@@ -163,7 +164,9 @@ public class ControlPlaneClient {
         this.instanceId = serviceName + "@" + host + ":" + port;
 
         doRegister();
-        startHeartbeat();
+        if (!heartbeatStarted) {
+            startHeartbeat();
+        }
     }
 
     /**
@@ -212,6 +215,7 @@ public class ControlPlaneClient {
      * 启动心跳任务
      */
     private void startHeartbeat() {
+        heartbeatStarted = true;
         scheduler.scheduleAtFixedRate(() -> {
             if (!registered) {
                 doRegister();
@@ -241,10 +245,12 @@ public class ControlPlaneClient {
                 registered = false;
             } else if (response.statusCode() != 200) {
                 logger.warn("Heartbeat failed: HTTP {}", response.statusCode());
+                registered = false;
             }
 
         } catch (Exception e) {
             logger.warn("⚠️ Heartbeat error: {}", e.getMessage());
+            registered = false;
         }
     }
 
@@ -627,6 +633,7 @@ public class ControlPlaneClient {
 
         running = false;
         sseConnected = false;
+        heartbeatStarted = false;
 
         // 注销服务
         deregister();

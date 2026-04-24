@@ -153,7 +153,7 @@ public class ServiceInstanceService {
     }
 
     @Transactional
-    public void heartbeat(String instanceId) {
+    public boolean heartbeat(String instanceId) {
         ServiceInstanceEntity instance = mapper.findByInstanceId(instanceId);
         if (instance != null) {
             instance.setLastHeartbeat(LocalDateTime.now());
@@ -161,8 +161,10 @@ public class ServiceInstanceService {
             instance.setExpiresAt(expiresAtFromNow());
             mapper.update(instance);
             logger.debug("Heartbeat received for instance: {}", instanceId);
+            return true;
         } else {
             logger.warn("Heartbeat received for unknown instance: {}", instanceId);
+            return false;
         }
     }
 

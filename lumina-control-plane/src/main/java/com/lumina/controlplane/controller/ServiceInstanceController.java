@@ -85,8 +85,8 @@ public class ServiceInstanceController {
     @PostMapping("/heartbeat/{instanceId}")
     public ResponseEntity<Void> heartbeat(@PathVariable("instanceId") String instanceId) {
         logger.debug("Received heartbeat for instance: {}", instanceId);
-        serviceInstanceService.heartbeat(instanceId);
-        return ResponseEntity.ok().build();
+        boolean found = serviceInstanceService.heartbeat(instanceId);
+        return found ? ResponseEntity.ok().build() : ResponseEntity.notFound().build();
     }
 
     /**
